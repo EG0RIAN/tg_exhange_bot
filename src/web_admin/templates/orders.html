@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заявки - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">
+            <i class="bi bi-shield-check"></i> Админка
+        </a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">
+                <i class="bi bi-person-circle"></i> {{ user }}
+            </span>
+            <a href="/logout" class="btn btn-outline-light">
+                <i class="bi bi-box-arrow-right"></i> Выйти
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-file-earmark-text"></i> Заявки</h1>
+        <a href="/admin" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Список заявок</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Пользователь</th>
+                            <th>Пара</th>
+                            <th>Сумма</th>
+                            <th>Способ выплаты</th>
+                            <th>Статус</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>{{ order.id }}</td>
+                            <td>
+                                {% if order.first_name %}
+                                    {{ order.first_name }}
+                                    {% if order.username %}
+                                        <br><small class="text-muted">@{{ order.username }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    ID: {{ order.tg_id }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ order.pair }}</span>
+                            </td>
+                            <td>{{ order.amount }}</td>
+                            <td>{{ order.payout_method }}</td>
+                            <td>
+                                {% if order.status == 'new' %}
+                                    <span class="badge bg-warning">Новая</span>
+                                {% elif order.status == 'processing' %}
+                                    <span class="badge bg-info">В обработке</span>
+                                {% elif order.status == 'completed' %}
+                                    <span class="badge bg-success">Завершена</span>
+                                {% elif order.status == 'cancelled' %}
+                                    <span class="badge bg-danger">Отменена</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ order.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td>
+                                <a href="/admin/orders/{{ order.id }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> Просмотр
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html> 

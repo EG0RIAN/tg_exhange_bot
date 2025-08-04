@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+        .stat-card.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .quick-stats {
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">
+            <i class="bi bi-shield-check"></i> Админка
+        </a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">
+                <i class="bi bi-person-circle"></i> {{ user }}
+            </span>
+            <a href="/logout" class="btn btn-outline-light">
+                <i class="bi bi-box-arrow-right"></i> Выйти
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-speedometer2"></i> Панель управления</h1>
+        <a href="/admin/stats" class="btn btn-primary">
+            <i class="bi bi-graph-up"></i> Подробная статистика
+        </a>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row quick-stats">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-people-fill fs-1"></i>
+                    <h5 class="card-title">Пользователи</h5>
+                    <a href="/admin/users" class="btn btn-light btn-sm">Управление</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card success">
+                <div class="card-body text-center">
+                    <i class="bi bi-file-earmark-text fs-1"></i>
+                    <h5 class="card-title">Заявки</h5>
+                    <a href="/admin/orders" class="btn btn-light btn-sm">Просмотр</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-chat-dots fs-1"></i>
+                    <h5 class="card-title">Live чаты</h5>
+                    <a href="/admin/live-chats" class="btn btn-light btn-sm">Открыть</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card info">
+                <div class="card-body text-center">
+                    <i class="bi bi-bell fs-1"></i>
+                    <h5 class="card-title">Уведомления</h5>
+                    <a href="/admin/notifications" class="btn btn-light btn-sm">Просмотр</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Управление контентом</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="/admin/trading-pairs" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-currency-exchange me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Торговые пары</h6>
+                                <small class="text-muted">Управление валютными парами</small>
+                            </div>
+                        </a>
+                        <a href="/admin/rates" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-graph-up me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Курсы валют</h6>
+                                <small class="text-muted">Настройка курсов и комиссий</small>
+                            </div>
+                        </a>
+                        <a href="/admin/payout-methods" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-credit-card me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Способы выплаты</h6>
+                                <small class="text-muted">Методы вывода средств</small>
+                            </div>
+                        </a>
+                        <a href="/admin/faq" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-question-circle me-3"></i>
+                            <div>
+                                <h6 class="mb-1">FAQ</h6>
+                                <small class="text-muted">Часто задаваемые вопросы</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-tools"></i> Управление системой</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="/admin/orders" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-file-earmark-text me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Заявки</h6>
+                                <small class="text-muted">Просмотр и обработка заявок</small>
+                            </div>
+                        </a>
+                        <a href="/admin/users" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-people me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Пользователи</h6>
+                                <small class="text-muted">Управление пользователями</small>
+                            </div>
+                        </a>
+                        <a href="/admin/live-chats" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-chat-dots me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Live чаты</h6>
+                                <small class="text-muted">Активные чаты с поддержкой</small>
+                            </div>
+                        </a>
+                        <a href="/admin/notifications" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-bell me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Уведомления</h6>
+                                <small class="text-muted">Системные уведомления</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html> 

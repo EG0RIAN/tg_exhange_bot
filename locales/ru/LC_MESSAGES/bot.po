@@ -1,0 +1,20 @@
+msgid "start_message"
+msgstr "👋 Привет! Я бот обменного сервиса. Используйте меню ниже."
+
+msgid "language_set"
+msgstr "Язык успешно переключён."
+
+msgid "health_message"
+msgstr "✅ Bot is alive!" 
+
+msgid "faq_intro"
+msgstr "FAQ: Вопросы и ответы появятся здесь."
+
+msgid "rates_intro"
+msgstr "Курсы валют: (заглушка)"
+
+msgid "manager_intro"
+msgstr "Live-chat с оператором: (заглушка)"
+
+msgid "settings_intro"
+msgstr "Настройки: выберите действие." 

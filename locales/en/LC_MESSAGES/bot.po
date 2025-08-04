@@ -1,0 +1,5 @@
+msgid "start_message"
+msgstr "👋 Hi! I am the exchange service bot. Use the menu below."
+ 
+msgid "health_message"
+msgstr "✅ Bot is alive!" 

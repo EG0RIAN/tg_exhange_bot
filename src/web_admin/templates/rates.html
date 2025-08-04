@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Курсы валют - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">Админка</a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">{{ user }}</span>
+            <a href="/logout" class="btn btn-outline-light">Выйти</a>
+        </div>
+    </div>
+</nav>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Курсы валют</h1>
+        <a href="/admin/rates/add" class="btn btn-primary">
+            <i class="bi bi-plus"></i> Добавить курс
+        </a>
+    </div>
+    
+    {% if rates %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Торговая пара</th>
+                    <th>Мин. сумма</th>
+                    <th>Макс. сумма</th>
+                    <th>Курс</th>
+                    <th>Активен</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in rates %}
+                <tr>
+                    <td>{{ rate.id }}</td>
+                    <td>
+                        <strong>{{ rate.base_name }} ➡️ {{ rate.quote_name }}</strong><br>
+                        <small class="text-muted">{{ rate.base_currency }}/{{ rate.quote_currency }}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${{ "{:,.0f}".format(rate.min_amount) }}</span>
+                    </td>
+                    <td>
+                        {% if rate.max_amount %}
+                            <span class="badge bg-warning">${{ "{:,.0f}".format(rate.max_amount) }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">∞</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-success">{{ "{:.2f}".format(rate.rate) }}</span>
+                    </td>
+                    <td>
+                        {% if rate.is_active %}
+                            <span class="badge bg-success">Да</span>
+                        {% else %}
+                            <span class="badge bg-danger">Нет</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="/admin/rates/{{ rate.id }}/edit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Изменить
+                            </a>
+                            <form method="post" action="/admin/rates/{{ rate.id }}/delete" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                        onclick="return confirm('Удалить курс?')">
+                                    <i class="bi bi-trash"></i> Удалить
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Курсы валют не найдены. 
+        <a href="/admin/rates/add">Добавить первый курс</a>
+    </div>
+    {% endif %}
+    
+    <div class="mt-3">
+        <a href="/admin" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад в админку
+        </a>
+    </div>
+</div>
+</body>
+</html> 

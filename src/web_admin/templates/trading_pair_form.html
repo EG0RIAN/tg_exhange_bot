@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if pair %}Редактировать{% else %}Добавить{% endif %} торговую пару - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">Админка</a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">{{ user }}</span>
+            <a href="/logout" class="btn btn-outline-light">Выйти</a>
+        </div>
+    </div>
+</nav>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        {% if pair %}
+                            Редактировать торговую пару
+                        {% else %}
+                            Добавить торговую пару
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% if pair %}/admin/trading-pairs/{{ pair.id }}/edit{% else %}/admin/trading-pairs/add{% endif %}">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="base_currency" class="form-label">Базовая валюта *</label>
+                                    <input type="text" class="form-control" id="base_currency" name="base_currency" 
+                                           value="{{ pair.base_currency if pair else '' }}" required maxlength="10">
+                                    <div class="form-text">Например: USD, EUR, RUB</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="quote_currency" class="form-label">Котируемая валюта *</label>
+                                    <input type="text" class="form-control" id="quote_currency" name="quote_currency" 
+                                           value="{{ pair.quote_currency if pair else '' }}" required maxlength="10">
+                                    <div class="form-text">Например: RUB, USD, EUR</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="base_name" class="form-label">Название базовой валюты *</label>
+                                    <input type="text" class="form-control" id="base_name" name="base_name" 
+                                           value="{{ pair.base_name if pair else '' }}" required>
+                                    <div class="form-text">Например: USD (Cash LA)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="quote_name" class="form-label">Название котируемой валюты *</label>
+                                    <input type="text" class="form-control" id="quote_name" name="quote_name" 
+                                           value="{{ pair.quote_name if pair else '' }}" required>
+                                    <div class="form-text">Например: RUB (Card)</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="sort_order" class="form-label">Порядок сортировки</label>
+                                    <input type="number" class="form-control" id="sort_order" name="sort_order" 
+                                           value="{{ pair.sort_order if pair else 0 }}" min="0">
+                                    <div class="form-text">Меньше число = выше в списке</div>
+                                </div>
+                            </div>
+                            {% if pair %}
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                               {% if pair.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_active">
+                                            Активна
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Неактивные пары не отображаются пользователям</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/admin/trading-pairs" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Назад к списку
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check"></i> 
+                                {% if pair %}Сохранить{% else %}Добавить{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html> 

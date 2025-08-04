@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Способы выплаты - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">Админка</a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">{{ user }}</span>
+            <a href="/logout" class="btn btn-outline-light">Выйти</a>
+        </div>
+    </div>
+</nav>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Способы выплаты</h1>
+        <a href="/admin/payout-methods/add" class="btn btn-primary">
+            <i class="bi bi-plus"></i> Добавить способ
+        </a>
+    </div>
+    
+    {% if methods %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Тип</th>
+                    <th>Активен</th>
+                    <th>Порядок</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for method in methods %}
+                <tr>
+                    <td>{{ method.id }}</td>
+                    <td>
+                        <strong>{{ method.name }}</strong>
+                    </td>
+                    <td>
+                        {% if method.type == 'card' %}
+                            <span class="badge bg-primary">
+                                <i class="bi bi-credit-card"></i> Карта
+                            </span>
+                        {% elif method.type == 'crypto' %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-currency-bitcoin"></i> Криптовалюта
+                            </span>
+                        {% elif method.type == 'cash' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-cash"></i> Наличные
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ method.type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if method.is_active %}
+                            <span class="badge bg-success">Да</span>
+                        {% else %}
+                            <span class="badge bg-danger">Нет</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ method.sort_order }}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="/admin/payout-methods/{{ method.id }}/edit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Изменить
+                            </a>
+                            <form method="post" action="/admin/payout-methods/{{ method.id }}/delete" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                        onclick="return confirm('Удалить способ выплаты?')">
+                                    <i class="bi bi-trash"></i> Удалить
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Способы выплаты не найдены. 
+        <a href="/admin/payout-methods/add">Добавить первый способ</a>
+    </div>
+    {% endif %}
+    
+    <div class="mt-3">
+        <a href="/admin" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад в админку
+        </a>
+    </div>
+</div>
+</body>
+</html> 
