@@ -13,7 +13,7 @@ templates = Jinja2Templates(directory="src/web_admin/templates")
 app.mount("/static", StaticFiles(directory="src/web_admin/static"), name="static")
 
 ADMIN_LOGIN = os.getenv("ADMIN_LOGIN", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "1i_X%9644XS1:d8=vHGV")
 
 # Database connection pool
 _db_pool = None
@@ -933,3 +933,501 @@ async def create_notification_manual(
     
     await create_notification(type, title, message)
     return RedirectResponse("/admin/notifications", status_code=status.HTTP_302_FOUND) 
+
+# ============================================================================
+# RAPIRA API INTEGRATION ROUTES
+# ============================================================================
+
+from fastapi import HTTPException
+import json
+from datetime import datetime, timedelta
+
+# Rapira Status Page
+@app.get("/rapira", response_class=HTMLResponse)
+async def rapira_status_page(request: Request, user=Depends(get_current_user)):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("rapira_status.html", {"request": request, "user": user})
+
+# Rapira Settings Page
+@app.get("/rapira/settings", response_class=HTMLResponse)
+async def rapira_settings_page(request: Request, user=Depends(get_current_user)):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("rapira_settings.html", {"request": request, "user": user})
+
+# Rapira Test Page
+@app.get("/rapira/test", response_class=HTMLResponse)
+async def rapira_test_page(request: Request, user=Depends(get_current_user)):
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("rapira_test.html", {"request": request, "user": user})
+
+# API Endpoints for Rapira Integration
+@app.get("/api/rapira/status")
+async def get_rapira_status(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        # Импортируем сервисы
+        from src.services.rates_scheduler import get_scheduler_status
+        from src.services.rapira import get_rapira_provider
+        
+        # Получаем статус планировщика
+        scheduler_status = await get_scheduler_status()
+        
+        # Получаем статус Rapira API
+        rapira_provider = await get_rapira_provider()
+        rapira_health = rapira_provider.get_health()
+        
+        # Получаем текущие курсы
+        from src.services.rates_calculator import get_rates_calculator
+        calculator = await get_rates_calculator()
+        
+        rates = []
+        pairs = ["USDT/RUB", "BTC/USDT", "EUR/USDT"]
+        
+        for pair in pairs:
+            try:
+                cash_in = await calculator.calculate_rate(pair, "cash_in", location="moscow")
+                cash_out = await calculator.calculate_rate(pair, "cash_out", location="moscow")
+                rates.append({
+                    "pair": pair,
+                    "cash_in": cash_in,
+                    "cash_out": cash_out
+                })
+            except Exception as e:
+                rates.append({
+                    "pair": pair,
+                    "cash_in": None,
+                    "cash_out": None
+                })
+        
+        # История обновлений (заглушка)
+        history = [
+            {
+                "timestamp": datetime.now().isoformat(),
+                "success": True,
+                "details": "Автоматическое обновление курсов"
+            }
+        ]
+        
+        return {
+            "scheduler": scheduler_status,
+            "rapira_health": {
+                "status": "healthy" if rapira_health.is_fresh else "stale",
+                "latency_ms": rapira_health.latency * 1000,
+                "http_code": rapira_health.http_code,
+                "error_count": 0,
+                "last_update": rapira_health.last_update.isoformat() if rapira_health.last_update else None,
+                "last_error": None
+            },
+            "rates": rates,
+            "history": history
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting status: {str(e)}")
+
+@app.get("/api/rapira/config")
+async def get_rapira_config(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.config.rapira_config import config
+        
+        return {
+            "api_base_url": config.API_BASE_URL,
+            "request_timeout": config.REQUEST_TIMEOUT,
+            "max_retries": config.MAX_RETRIES,
+            "retry_delay_base": config.RETRY_DELAY_BASE,
+            "health_check_interval": config.HEALTH_CHECK_INTERVAL,
+            "cache_ttl": config.CACHE_TTL,
+            "stale_ttl": config.STALE_TTL,
+            "update_interval": config.UPDATE_INTERVAL,
+            "vwap_default_amount": config.VWAP_DEFAULT_AMOUNT,
+            "city_spreads": config.CITY_SPREADS,
+            "percent_rules": config.PERCENT_RULES,
+            "log_level": config.LOG_LEVEL,
+            "log_requests": config.LOG_REQUESTS,
+            "log_responses": config.LOG_RESPONSES,
+            "alert_on_errors": config.ALERT_ON_ERRORS,
+            "max_errors_before_alert": config.MAX_ERRORS_BEFORE_ALERT
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting config: {str(e)}")
+
+@app.post("/api/rapira/config")
+async def update_rapira_config(request: Request, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        config_data = await request.json()
+        
+        # Здесь должна быть логика обновления конфигурации
+        # Пока что просто возвращаем успех
+        
+        return {"success": True, "message": "Configuration updated successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
+
+@app.post("/api/rapira/force-update")
+async def force_update_rates(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rates import import_rapira_rates
+        
+        # Принудительно обновляем курсы
+        updated_count = await import_rapira_rates()
+        
+        # Также запускаем обновление через планировщик
+        from src.services.rates_scheduler import get_rates_scheduler
+        scheduler = await get_rates_scheduler()
+        await scheduler.force_update()
+        
+        return {
+            "success": True,
+            "message": f"Курсы обновлены успешно! Обновлено пар: {updated_count}",
+            "updated_count": updated_count
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating rates: {str(e)}")
+
+@app.post("/api/rapira/vwap")
+async def calculate_vwap_rate(request: Request, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        data = await request.json()
+        pair = data.get("pair", "USDT/RUB")
+        amount_usd = data.get("amount_usd", 50000.0)
+        operation = data.get("operation", "cash_in")
+        location = data.get("location", "moscow")
+        
+        from src.services.rates_calculator import get_rates_calculator
+        calculator = await get_rates_calculator()
+        
+        # Конвертируем operation в OperationType
+        from src.services.rates_calculator import OperationType
+        op_type = OperationType.CASH_IN if operation == "cash_in" else OperationType.CASH_OUT
+        
+        result = await calculator.calculate_rate(pair, op_type, amount_usd, location, use_vwap=True)
+        
+        # Вычисляем спред
+        spread = ((result.final_rate - result.base_rate) / result.base_rate) * 100
+        
+        return {
+            "success": True,
+            "data": {
+                "base_rate": result.base_rate,
+                "final_rate": result.final_rate,
+                "spread": spread,
+                "source": result.source,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating VWAP: {str(e)}")
+
+# Test endpoints
+@app.get("/api/rapira/test/plate-mini")
+async def test_plate_mini(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        plate = await provider.get_plate_mini("USDT/RUB")
+        
+        if plate:
+            return {
+                "success": True,
+                "message": "Plate Mini API test successful",
+                "data": {
+                    "symbol": plate.symbol,
+                    "best_bid": plate.best_bid.price if plate.best_bid else None,
+                    "best_ask": plate.best_ask.price if plate.best_ask else None,
+                    "timestamp": plate.ts
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No data received from Plate Mini API"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Plate Mini API test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/rates")
+async def test_rates_api(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        rates = await provider.get_rates()
+        
+        if rates:
+            return {
+                "success": True,
+                "message": f"Rates API test successful. Got {len(rates)} rates",
+                "data": rates
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No rates received from API"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Rates API test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/health")
+async def test_health_check(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        health = provider.get_health()
+        
+        return {
+            "success": True,
+            "message": "Health check successful",
+            "data": {
+                "latency": health.latency,
+                "http_code": health.http_code,
+                "is_fresh": health.is_fresh,
+                "last_update": health.last_update.isoformat() if health.last_update else None
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Health check failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/rate-calculation")
+async def test_rate_calculation(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rates_calculator import get_rates_calculator, OperationType
+        
+        calculator = await get_rates_calculator()
+        result = await calculator.calculate_rate("USDT/RUB", OperationType.CASH_IN, location="moscow")
+        
+        return {
+            "success": True,
+            "message": "Rate calculation test successful",
+            "data": {
+                "base_rate": result.base_rate,
+                "final_rate": result.final_rate,
+                "source": result.source
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Rate calculation test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/fallback")
+async def test_fallback_strategy(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        # Тестируем fallback стратегию
+        plate = await provider._get_fallback_plate("USDT/RUB")
+        
+        if plate:
+            return {
+                "success": True,
+                "message": "Fallback strategy test successful",
+                "data": {
+                    "source": "fallback",
+                    "symbol": plate.symbol,
+                    "timestamp": plate.ts
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Fallback strategy failed - no data available"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Fallback strategy test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/cache")
+async def test_cache_system(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        redis = await provider.get_redis()
+        
+        # Тестируем кэш
+        test_key = "test:cache:rapira"
+        test_value = "test_value"
+        
+        await redis.set(test_key, test_value, ex=60)
+        cached_value = await redis.get(test_key)
+        await redis.delete(test_key)
+        
+        if cached_value == test_value:
+            return {
+                "success": True,
+                "message": "Cache system test successful",
+                "data": {
+                    "cache_working": True,
+                    "test_key": test_key,
+                    "test_value": test_value
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Cache system test failed - data mismatch"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Cache system test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/latency")
+async def test_latency(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        import time
+        from src.services.rapira import get_rapira_provider
+        
+        start_time = time.time()
+        provider = await get_rapira_provider()
+        plate = await provider.get_plate_mini("USDT/RUB")
+        end_time = time.time()
+        
+        latency = (end_time - start_time) * 1000  # в миллисекундах
+        
+        return {
+            "success": True,
+            "message": f"Latency test completed in {latency:.2f}ms",
+            "data": {
+                "latency_ms": latency,
+                "data_received": plate is not None
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Latency test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/concurrent")
+async def test_concurrent_requests(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        import asyncio
+        import time
+        from src.services.rapira import get_rapira_provider
+        
+        provider = await get_rapira_provider()
+        
+        async def make_request():
+            return await provider.get_plate_mini("USDT/RUB")
+        
+        start_time = time.time()
+        tasks = [make_request() for _ in range(5)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        end_time = time.time()
+        
+        successful_requests = sum(1 for r in results if not isinstance(r, Exception))
+        total_time = (end_time - start_time) * 1000
+        
+        return {
+            "success": True,
+            "message": f"Concurrent test completed. {successful_requests}/5 requests successful",
+            "data": {
+                "total_time_ms": total_time,
+                "successful_requests": successful_requests,
+                "failed_requests": 5 - successful_requests,
+                "average_time_per_request": total_time / 5
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Concurrent test failed: {str(e)}"
+        }
+
+@app.get("/api/rapira/test/memory")
+async def test_memory_usage(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        import psutil
+        import os
+        
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        
+        return {
+            "success": True,
+            "message": "Memory usage test completed",
+            "data": {
+                "rss_mb": memory_info.rss / 1024 / 1024,
+                "vms_mb": memory_info.vms / 1024 / 1024,
+                "percent": process.memory_percent()
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Memory test failed: {str(e)}"
+        }

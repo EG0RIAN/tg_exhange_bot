@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Настройки Rapira API - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .setting-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #007bff;
+        }
+        .setting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .setting-card.success {
+            border-left-color: #28a745;
+        }
+        .setting-card.warning {
+            border-left-color: #ffc107;
+        }
+        .setting-card.danger {
+            border-left-color: #dc3545;
+        }
+        .form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-save:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .config-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .config-section h5 {
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin">
+                <i class="bi bi-shield-check"></i> Админка
+            </a>
+            <div class="d-flex">
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-circle"></i> {{ user }}
+                </span>
+                <a href="/logout" class="btn btn-outline-light">
+                    <i class="bi bi-box-arrow-right"></i> Выйти
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-gear"></i> Настройки интеграции с Rapira API</h1>
+            <div>
+                <button class="btn btn-outline-secondary me-2" onclick="resetToDefaults()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Сбросить к умолчаниям
+                </button>
+                <button class="btn btn-save text-white" onclick="saveSettings()">
+                    <i class="bi bi-save me-1"></i>Сохранить настройки
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <a href="/rapira" class="btn btn-outline-primary me-2">
+                <i class="bi bi-graph-up-arrow"></i> Статус
+            </a>
+            <a href="/rapira/test" class="btn btn-outline-info me-2">
+                <i class="bi bi-flask"></i> Тестирование
+            </a>
+            <a href="/admin" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Назад в админку
+            </a>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="config-section">
+            <h5><i class="bi bi-globe me-2"></i>API Endpoints</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="api_base_url" class="form-label">Базовый URL API</label>
+                        <input type="url" class="form-control" id="api_base_url" 
+                               placeholder="https://api.rapira.net" value="https://api.rapira.net">
+                        <div class="form-text">Базовый URL для всех API запросов</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="api_timeout" class="form-label">Таймаут запроса (сек)</label>
+                        <input type="number" class="form-control" id="api_timeout" 
+                               min="1" max="60" value="10">
+                        <div class="form-text">Максимальное время ожидания ответа от API</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Settings -->
+        <div class="config-section">
+            <h5><i class="bi bi-arrow-clockwise me-2"></i>Настройки запросов</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="max_retries" class="form-label">Максимум попыток</label>
+                        <input type="number" class="form-control" id="max_retries" 
+                               min="1" max="10" value="3">
+                        <div class="form-text">Количество повторных попыток при ошибке</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="retry_delay" class="form-label">Базовая задержка (сек)</label>
+                        <input type="number" class="form-control" id="retry_delay" 
+                               min="0.1" max="10" step="0.1" value="0.5">
+                        <div class="form-text">Базовая задержка между попытками</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="health_check_interval" class="form-label">Интервал проверки здоровья (сек)</label>
+                        <input type="number" class="form-control" id="health_check_interval" 
+                               min="10" max="300" value="30">
+                        <div class="form-text">Как часто проверять состояние API</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caching Settings -->
+        <div class="config-section">
+            <h5><i class="bi bi-database me-2"></i>Настройки кэширования</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="cache_ttl" class="form-label">TTL кэша (сек)</label>
+                        <input type="number" class="form-control" id="cache_ttl" 
+                               min="1" max="300" value="5">
+                        <div class="form-text">Время жизни кэшированных данных</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="stale_ttl" class="form-label">TTL устаревания (сек)</label>
+                        <input type="number" class="form-control" id="stale_ttl" 
+                               min="10" max="600" value="30">
+                        <div class="form-text">Время, после которого данные считаются устаревшими</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheduler Settings -->
+        <div class="config-section">
+            <h5><i class="bi bi-clock me-2"></i>Настройки планировщика</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="update_interval" class="form-label">Интервал обновления (сек)</label>
+                        <input type="number" class="form-control" id="update_interval" 
+                               min="1" max="300" value="5">
+                        <div class="form-text">Как часто обновлять курсы из API</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="vwap_default_amount" class="form-label">Сумма VWAP по умолчанию (USD)</label>
+                        <input type="number" class="form-control" id="vwap_default_amount" 
+                               min="1000" max="1000000" step="1000" value="50000">
+                        <div class="form-text">Сумма по умолчанию для расчета VWAP</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- City Spreads -->
+        <div class="config-section">
+            <h5><i class="bi bi-geo-alt me-2"></i>Спреды по городам (%)</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="moscow_cash_in" class="form-label">Москва - CASH_IN</label>
+                        <input type="number" class="form-control" id="moscow_cash_in" 
+                               min="-10" max="10" step="0.1" value="0.5">
+                        <div class="form-text">Спред для Москвы при покупке USDT</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="moscow_cash_out" class="form-label">Москва - CASH_OUT</label>
+                        <input type="number" class="form-control" id="moscow_cash_out" 
+                               min="-10" max="10" step="0.1" value="0.5">
+                        <div class="form-text">Спред для Москвы при продаже USDT</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="spb_cash_in" class="form-label">СПб - CASH_IN</label>
+                        <input type="number" class="form-control" id="spb_cash_in" 
+                               min="-10" max="10" step="0.1" value="0.6">
+                        <div class="form-text">Спред для СПб при покупке USDT</div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="spb_cash_out" class="form-label">СПб - CASH_OUT</label>
+                        <input type="number" class="form-control" id="spb_cash_out" 
+                               min="-10" max="10" step="0.1" value="0.6">
+                        <div class="form-text">Спред для СПб при продаже USDT</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="other_cash_in" class="form-label">Другие города - CASH_IN</label>
+                        <input type="number" class="form-control" id="other_cash_in" 
+                               min="-10" max="10" step="0.1" value="1.0">
+                        <div class="form-text">Спред для других городов при покупке USDT</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="other_cash_out" class="form-label">Другие города - CASH_OUT</label>
+                        <input type="number" class="form-control" id="other_cash_out" 
+                               min="-10" max="10" step="0.1" value="1.0">
+                        <div class="form-text">Спред для других городов при продаже USDT</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Percentage Rules -->
+        <div class="config-section">
+            <h5><i class="bi bi-percent me-2"></i>Процентные правила (%)</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="default_cash_in" class="form-label">По умолчанию - CASH_IN</label>
+                        <input type="number" class="form-control" id="default_cash_in" 
+                               min="-10" max="10" step="0.1" value="0.0">
+                        <div class="form-text">Базовый процент для покупки USDT</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="default_cash_out" class="form-label">По умолчанию - CASH_OUT</label>
+                        <input type="number" class="form-control" id="default_cash_out" 
+                               min="-10" max="10" step="0.1" value="0.0">
+                        <div class="form-text">Базовый процент для продажи USDT</div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="premium_cash_in" class="form-label">Premium - CASH_IN</label>
+                        <input type="number" class="form-control" id="premium_cash_in" 
+                               min="-10" max="10" step="0.1" value="-0.1">
+                        <div class="form-text">Процент для premium клиентов при покупке</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="premium_cash_out" class="form-label">Premium - CASH_OUT</label>
+                        <input type="number" class="form-control" id="premium_cash_out" 
+                               min="-10" max="10" step="0.1" value="-0.1">
+                        <div class="form-text">Процент для premium клиентов при продаже</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logging Settings -->
+        <div class="config-section">
+            <h5><i class="bi bi-file-text me-2"></i>Настройки логирования</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="log_level" class="form-label">Уровень логирования</label>
+                        <select class="form-select" id="log_level">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO" selected>INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                        <div class="form-text">Минимальный уровень для записи в лог</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" id="log_requests" checked>
+                            <label class="form-check-label" for="log_requests">
+                                Логировать запросы
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" id="log_responses">
+                            <label class="form-check-label" for="log_responses">
+                                Логировать ответы
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Settings -->
+        <div class="config-section">
+            <h5><i class="bi bi-eye me-2"></i>Настройки мониторинга</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="alert_on_errors" checked>
+                            <label class="form-check-label" for="alert_on_errors">
+                                Отправлять алерты при ошибках
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="max_errors_before_alert" class="form-label">Макс. ошибок до алерта</label>
+                        <input type="number" class="form-control" id="max_errors_before_alert" 
+                               min="1" max="10" value="3">
+                        <div class="form-text">Количество ошибок перед отправкой алерта</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Configuration Summary -->
+        <div class="config-section">
+            <h5><i class="bi bi-info-circle me-2"></i>Текущая конфигурация</h5>
+            <div class="row">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <strong>Поддерживаемые пары:</strong> USDT/RUB, BTC/USDT, EUR/USDT, USD/RUB
+                    </div>
+                    <div class="alert alert-warning">
+                        <strong>Внимание:</strong> Изменения вступят в силу после перезапуска сервиса
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кнопка сохранения внизу -->
+    <div class="container-fluid mt-4 mb-4">
+        <div class="row">
+            <div class="col-12 text-center">
+                <button class="btn btn-save btn-lg text-white me-3" onclick="saveSettings()">
+                    <i class="bi bi-save me-2"></i>Сохранить все настройки
+                </button>
+                <button class="btn btn-outline-secondary btn-lg" onclick="resetToDefaults()">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Сбросить к умолчаниям
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для подтверждения -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirm-message">
+                    <!-- Сообщение будет загружено динамически -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" id="confirm-action">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Загрузка текущих настроек при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentSettings();
+        });
+
+        // Загрузка текущих настроек
+        async function loadCurrentSettings() {
+            try {
+                const response = await fetch('/api/rapira/config');
+                const config = await response.json();
+                populateForm(config);
+            } catch (error) {
+                console.error('Ошибка загрузки настроек:', error);
+                showError('Ошибка загрузки текущих настроек');
+            }
+        }
+
+        // Заполнение формы текущими значениями
+        function populateForm(config) {
+            // API Endpoints
+            document.getElementById('api_base_url').value = config.api_base_url || 'https://api.rapira.net';
+            document.getElementById('api_timeout').value = config.request_timeout || 10;
+            
+            // Request Settings
+            document.getElementById('max_retries').value = config.max_retries || 3;
+            document.getElementById('retry_delay').value = config.retry_delay_base || 0.5;
+            document.getElementById('health_check_interval').value = config.health_check_interval || 30;
+            
+            // Caching
+            document.getElementById('cache_ttl').value = config.cache_ttl || 5;
+            document.getElementById('stale_ttl').value = config.stale_ttl || 30;
+            
+            // Scheduler
+            document.getElementById('update_interval').value = config.update_interval || 5;
+            document.getElementById('vwap_default_amount').value = config.vwap_default_amount || 50000;
+            
+            // City Spreads
+            document.getElementById('moscow_cash_in').value = config.city_spreads?.moscow?.cash_in || 0.5;
+            document.getElementById('moscow_cash_out').value = config.city_spreads?.moscow?.cash_out || 0.5;
+            document.getElementById('spb_cash_in').value = config.city_spreads?.spb?.cash_in || 0.6;
+            document.getElementById('spb_cash_out').value = config.city_spreads?.spb?.cash_out || 0.6;
+            document.getElementById('other_cash_in').value = config.city_spreads?.other?.cash_in || 1.0;
+            document.getElementById('other_cash_out').value = config.city_spreads?.other?.cash_out || 1.0;
+            
+            // Percentage Rules
+            document.getElementById('default_cash_in').value = config.percent_rules?.default?.cash_in || 0.0;
+            document.getElementById('default_cash_out').value = config.percent_rules?.default?.cash_out || 0.0;
+            document.getElementById('premium_cash_in').value = config.percent_rules?.premium?.cash_in || -0.1;
+            document.getElementById('premium_cash_out').value = config.percent_rules?.premium?.cash_out || -0.1;
+            
+            // Logging
+            document.getElementById('log_level').value = config.log_level || 'INFO';
+            document.getElementById('log_requests').checked = config.log_requests !== false;
+            document.getElementById('log_responses').checked = config.log_responses === true;
+            
+            // Monitoring
+            document.getElementById('alert_on_errors').checked = config.alert_on_errors !== false;
+            document.getElementById('max_errors_before_alert').value = config.max_errors_before_alert || 3;
+        }
+
+        // Сохранение настроек
+        async function saveSettings() {
+            try {
+                const settings = collectFormData();
+                
+                const response = await fetch('/api/rapira/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(settings)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Настройки успешно сохранены!');
+                } else {
+                    showError(`Ошибка сохранения: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+                showError('Ошибка при сохранении настроек');
+            }
+        }
+
+        // Сбор данных из формы
+        function collectFormData() {
+            return {
+                api_base_url: document.getElementById('api_base_url').value,
+                request_timeout: parseInt(document.getElementById('api_timeout').value),
+                max_retries: parseInt(document.getElementById('max_retries').value),
+                retry_delay_base: parseFloat(document.getElementById('retry_delay').value),
+                health_check_interval: parseInt(document.getElementById('health_check_interval').value),
+                cache_ttl: parseInt(document.getElementById('cache_ttl').value),
+                stale_ttl: parseInt(document.getElementById('stale_ttl').value),
+                update_interval: parseInt(document.getElementById('update_interval').value),
+                vwap_default_amount: parseFloat(document.getElementById('vwap_default_amount').value),
+                city_spreads: {
+                    moscow: {
+                        cash_in: parseFloat(document.getElementById('moscow_cash_in').value),
+                        cash_out: parseFloat(document.getElementById('moscow_cash_out').value)
+                    },
+                    spb: {
+                        cash_in: parseFloat(document.getElementById('spb_cash_in').value),
+                        cash_out: parseFloat(document.getElementById('spb_cash_out').value)
+                    },
+                    other: {
+                        cash_in: parseFloat(document.getElementById('other_cash_in').value),
+                        cash_out: parseFloat(document.getElementById('other_cash_out').value)
+                    }
+                },
+                percent_rules: {
+                    default: {
+                        cash_in: parseFloat(document.getElementById('default_cash_in').value),
+                        cash_out: parseFloat(document.getElementById('default_cash_out').value)
+                    },
+                    premium: {
+                        cash_in: parseFloat(document.getElementById('premium_cash_in').value),
+                        cash_out: parseFloat(document.getElementById('premium_cash_out').value)
+                    }
+                },
+                log_level: document.getElementById('log_level').value,
+                log_requests: document.getElementById('log_requests').checked,
+                log_responses: document.getElementById('log_responses').checked,
+                alert_on_errors: document.getElementById('alert_on_errors').checked,
+                max_errors_before_alert: parseInt(document.getElementById('max_errors_before_alert').value)
+            };
+        }
+
+        // Сброс к умолчаниям
+        function resetToDefaults() {
+            showConfirmModal(
+                'Сбросить все настройки к значениям по умолчанию?',
+                'Это действие нельзя отменить.',
+                function() {
+                    populateForm(getDefaultSettings());
+                    showSuccess('Настройки сброшены к значениям по умолчанию');
+                }
+            );
+        }
+
+        // Получение настроек по умолчанию
+        function getDefaultSettings() {
+            return {
+                api_base_url: 'https://api.rapira.net',
+                request_timeout: 10,
+                max_retries: 3,
+                retry_delay_base: 0.5,
+                health_check_interval: 30,
+                cache_ttl: 5,
+                stale_ttl: 30,
+                update_interval: 5,
+                vwap_default_amount: 50000,
+                city_spreads: {
+                    moscow: { cash_in: 0.5, cash_out: 0.5 },
+                    spb: { cash_in: 0.6, cash_out: 0.6 },
+                    other: { cash_in: 1.0, cash_out: 1.0 }
+                },
+                percent_rules: {
+                    default: { cash_in: 0.0, cash_out: 0.0 },
+                    premium: { cash_in: -0.1, cash_out: -0.1 }
+                },
+                log_level: 'INFO',
+                log_requests: true,
+                log_responses: false,
+                alert_on_errors: true,
+                max_errors_before_alert: 3
+            };
+        }
+
+        // Показать модальное окно подтверждения
+        function showConfirmModal(title, message, onConfirm) {
+            document.getElementById('confirm-message').innerHTML = `
+                <h6>${title}</h6>
+                <p class="text-muted">${message}</p>
+            `;
+            
+            const confirmBtn = document.getElementById('confirm-action');
+            confirmBtn.onclick = function() {
+                onConfirm();
+                bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+            };
+            
+            new bootstrap.Modal(document.getElementById('confirmModal')).show();
+        }
+
+        // Показать уведомление об успехе
+        function showSuccess(message) {
+            showNotification(message, 'success');
+        }
+
+        // Показать уведомление об ошибке
+        function showError(message) {
+            showNotification(message, 'danger');
+        }
+
+        // Показать уведомление
+        function showNotification(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Автоматически скрыть через 5 секунд
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

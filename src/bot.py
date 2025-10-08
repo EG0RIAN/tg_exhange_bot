@@ -14,6 +14,7 @@ from src.handlers.faq import router as faq_router
 from src.handlers.livechat import router as livechat_router
 from src.handlers.admin import router as admin_router
 from src.handlers.admin_content import router as admin_content_router
+from src.handlers.admin_rapira import router as admin_rapira_router
 from src.handlers.settings import router as settings_router
 from src.scheduler import start_scheduler
 
@@ -38,6 +39,7 @@ async def main():
     dp.include_router(livechat_router)
     dp.include_router(admin_router)
     dp.include_router(admin_content_router)
+    dp.include_router(admin_rapira_router)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

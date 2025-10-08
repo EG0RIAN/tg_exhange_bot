@@ -121,10 +121,10 @@ async def confirm_request(callback: CallbackQuery, state: FSMContext):
     try:
         order_id = await create_order(pool, user_id=user['id'], pair=data['pair'], amount=data['amount'], payout_method=data['payout_method'], contact=data['contact'])
         print(f"Заявка создана с ID: {order_id}")
-        
+    
         # Уведомляем операторов о новой заявке
         await notify_new_order(order_id, callback.from_user.id, data['amount'], data['pair'])
-        
+    
         await callback.message.edit_text("✅ Заявка отправлена оператору!")
         await state.clear()
     except Exception as e:

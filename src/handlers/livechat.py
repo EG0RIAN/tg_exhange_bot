@@ -63,7 +63,7 @@ async def livechat_reply(message: Message):
         
         if not is_active:
             await message.answer(f"❌ Чат с пользователем {user_id} неактивен.")
-            return
+        return
         
         # Отправляем ответ пользователю
         from aiogram import Bot
