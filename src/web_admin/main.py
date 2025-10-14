@@ -1017,8 +1017,8 @@ async def api_trigger_sync(
     
     scheduler = await get_fx_scheduler()
     result = await scheduler.trigger_sync(source)
-    
-    return {
+        
+        return {
         "success": True,
         "message": f"Sync triggered for {source or 'all sources'}",
         "result": result
@@ -1224,13 +1224,13 @@ async def api_get_all_city_rates(
     base_data = await client.get_base_rate(symbol)
     
     if not base_data or not (base_data.get('best_ask') or base_data.get('best_bid')):
-        return {
-            "success": False,
+            return {
+                "success": False,
             "error": "No base rate available",
             "symbol": symbol,
             "rates": {}
-        }
-    
+            }
+            
     # Выбираем базовую цену
     base_rate = base_data['best_ask'] if operation == "buy" else base_data['best_bid']
     if not base_rate:
@@ -1284,7 +1284,7 @@ async def api_get_all_city_rates(
             'timestamp': base_data['timestamp'].isoformat() if hasattr(base_data['timestamp'], 'isoformat') else str(base_data['timestamp'])
         }
     
-    return {
+        return {
         "success": True,
         "symbol": symbol,
         "operation": operation,
@@ -1425,7 +1425,7 @@ async def api_create_city(
             """, code, name, markup_percent, markup_fixed, enabled)
             
             return {"success": True, "code": code, "name": name}
-        except Exception as e:
+    except Exception as e:
             from fastapi import HTTPException
             raise HTTPException(status_code=400, detail=f"Error creating city: {str(e)}")
 
@@ -1620,9 +1620,11 @@ async def api_create_source_pair(
     internal_symbol = data.get('internal_symbol')  # Наш внутренний символ
     enabled = data.get('enabled', True)
     
+    logger.info(f"Creating pair: source={source_code}, source_symbol={source_symbol}, internal={internal_symbol}")
+    
     if not source_code or not source_symbol or not internal_symbol:
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="source_code, source_symbol and internal_symbol are required")
+        raise HTTPException(status_code=400, detail=f"Missing fields: source_code={source_code}, source_symbol={source_symbol}, internal_symbol={internal_symbol}")
     
     pool = await get_db_pool()
     async with pool.acquire() as conn:
@@ -1646,15 +1648,15 @@ async def api_create_source_pair(
                 VALUES ($1, $2, $1, $2, $3)
                 ON CONFLICT (base_currency, quote_currency) DO NOTHING
             """, base, quote, enabled)
-            
-            return {
-                "success": True,
+        
+        return {
+            "success": True,
                 "pair_id": pair_id,
                 "source_code": source_code,
                 "source_symbol": source_symbol,
                 "internal_symbol": internal_symbol
             }
-        except Exception as e:
+    except Exception as e:
             from fastapi import HTTPException
             raise HTTPException(status_code=400, detail=f"Error creating pair: {str(e)}")
 
