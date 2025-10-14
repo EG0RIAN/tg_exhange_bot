@@ -1014,6 +1014,13 @@
                 
                 const result = await response.json();
                 
+                if (!response.ok) {
+                    // Ошибка от сервера
+                    const errorMsg = result.detail || result.error || 'Unknown error';
+                    alert('❌ Ошибка: ' + errorMsg);
+                    return;
+                }
+                
                 if (result.success) {
                     alert(`✅ Пара "${internalSymbol}" добавлена!`);
                     bootstrap.Modal.getInstance(document.getElementById('addPairModal')).hide();
@@ -1029,7 +1036,7 @@
                     // Обновляем селектор пар в первой вкладке
                     updatePairSelector();
                 } else {
-                    alert('❌ Ошибка: ' + (result.error || response.statusText));
+                    alert('❌ Ошибка: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
                 alert('❌ Ошибка при добавлении пары: ' + error.message);
