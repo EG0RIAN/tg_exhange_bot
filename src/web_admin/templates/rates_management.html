@@ -1001,6 +1001,8 @@
             }
             
             try {
+                console.log('Adding pair:', {sourceCode, sourceSymbol, internalSymbol, enabled});
+                
                 const response = await fetch('/api/fx/source-pairs', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -1012,12 +1014,23 @@
                     })
                 });
                 
-                const result = await response.json();
+                console.log('Response status:', response.status);
+                
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    // Если не JSON - получаем текст ошибки
+                    const text = await response.text();
+                    alert(`❌ Ошибка сервера (${response.status}): ${text.substring(0, 200)}`);
+                    return;
+                }
                 
                 if (!response.ok) {
                     // Ошибка от сервера
-                    const errorMsg = result.detail || result.error || 'Unknown error';
+                    const errorMsg = result.detail || result.error || JSON.stringify(result);
                     alert('❌ Ошибка: ' + errorMsg);
+                    console.error('Server error:', result);
                     return;
                 }
                 
@@ -1039,6 +1052,7 @@
                     alert('❌ Ошибка: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
+                console.error('Exception:', error);
                 alert('❌ Ошибка при добавлении пары: ' + error.message);
             }
         }
