@@ -1016,14 +1016,17 @@
                 
                 console.log('Response status:', response.status);
                 
-                // Читаем response один раз
-                const contentType = response.headers.get('content-type');
+                // Клонируем response чтобы можно было читать body несколько раз
+                const responseClone = response.clone();
                 let result;
                 
-                if (contentType && contentType.includes('application/json')) {
+                try {
                     result = await response.json();
-                } else {
-                    const text = await response.text();
+                    console.log('Parsed result:', result);
+                } catch (jsonError) {
+                    // Если не JSON - получаем текст из клона
+                    const text = await responseClone.text();
+                    console.error('Not JSON, text:', text);
                     alert(`❌ Ошибка сервера (${response.status}): ${text.substring(0, 200)}`);
                     return;
                 }
@@ -1031,7 +1034,7 @@
                 if (!response.ok) {
                     // Ошибка от сервера
                     const errorMsg = result.detail || result.error || JSON.stringify(result);
-                    alert('❌ Ошибка: ' + errorMsg);
+                    alert('❌ Ошибка от сервера: ' + errorMsg);
                     console.error('Server error:', result);
                     return;
                 }
