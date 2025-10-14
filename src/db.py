@@ -10,16 +10,23 @@ PG_DB = os.getenv("POSTGRES_DB", "exchange")
 PG_USER = os.getenv("POSTGRES_USER", "exchange")
 PG_PASSWORD = os.getenv("POSTGRES_PASSWORD", "exchange")
 
+# Глобальный пул подключений
+_pg_pool = None
+
 async def get_pg_pool():
-    return await asyncpg.create_pool(
-        host=PG_HOST,
-        port=PG_PORT,
-        user=PG_USER,
-        password=PG_PASSWORD,
-        database=PG_DB,
-        min_size=1,
-        max_size=10,
-    )
+    """Получает глобальный пул подключений (singleton)"""
+    global _pg_pool
+    if _pg_pool is None:
+        _pg_pool = await asyncpg.create_pool(
+            host=PG_HOST,
+            port=PG_PORT,
+            user=PG_USER,
+            password=PG_PASSWORD,
+            database=PG_DB,
+            min_size=2,
+            max_size=20,  # Увеличен лимит
+        )
+    return _pg_pool
 
 async def create_order(pool, user_id, pair, amount, payout_method, contact, rate_snapshot=None):
     async with pool.acquire() as conn:

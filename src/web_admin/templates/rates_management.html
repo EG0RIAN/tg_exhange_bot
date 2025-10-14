@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление курсами - Admin Panel</title>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+        .header-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .section-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .rate-badge {
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px;
+        }
+        .rate-badge.rapira {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .rate-badge.grinex {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .city-row {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        .city-row:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        .markup-input {
+            width: 100px;
+            display: inline-block;
+            margin: 0 10px;
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .tab-content {
+            padding-top: 20px;
+        }
+        .nav-tabs .nav-link {
+            color: #667eea;
+            font-weight: 600;
+        }
+        .nav-tabs .nav-link.active {
+            color: #764ba2;
+            border-bottom: 3px solid #764ba2;
+        }
+        .rate-table {
+            font-size: 0.95rem;
+        }
+        .rate-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0"><i class="bi bi-currency-exchange"></i> Управление курсами</h2>
+                    <p class="text-muted mb-0">Единая панель для управления курсами валют и наценками</p>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary" onclick="syncNow()">
+                        <i class="bi bi-arrow-clockwise"></i> Синхронизировать
+                    </button>
+                    <a href="/admin" class="btn btn-outline-secondary">
+                        <i class="bi bi-house"></i> На главную
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Sync Status -->
+            <div class="sync-status mt-3" id="syncStatus">
+                <span class="status-badge success">
+                    <i class="bi bi-check-circle"></i> Синхронизация активна
+                </span>
+                <span class="text-muted" id="lastSync">Последнее обновление: загрузка...</span>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="section-card">
+            <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button">
+                        <i class="bi bi-graph-up"></i> Текущие курсы
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="markup-tab" data-bs-toggle="tab" data-bs-target="#markup" type="button">
+                        <i class="bi bi-percent"></i> Городские наценки
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pairs-tab" data-bs-toggle="tab" data-bs-target="#pairs" type="button">
+                        <i class="bi bi-arrow-left-right"></i> Торговые пары
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sources-tab" data-bs-toggle="tab" data-bs-target="#sources" type="button">
+                        <i class="bi bi-database"></i> Источники данных
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="mainTabsContent">
+                <!-- Tab 1: Текущие курсы -->
+                <div class="tab-pane fade show active" id="rates" role="tabpanel">
+                    <h5 class="mb-3">Актуальные курсы по городам</h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label>Торговая пара:</label>
+                            <select class="form-select" id="pairSelect" onchange="loadRates()">
+                                <option value="">Загрузка...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8 text-muted">
+                            <small><i class="bi bi-info-circle"></i> Пары подгружаются из вкладки "Торговые пары"</small>
+                        </div>
+                    </div>
+
+                    <table class="table rate-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Город</th>
+                                <th>Базовый курс (Rapira)</th>
+                                <th>Наценка</th>
+                                <th>Финальный курс</th>
+                                <th>Источник</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ratesTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Загрузка...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 2: Городские наценки -->
+                <div class="tab-pane fade" id="markup" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0">Настройка наценок по городам</h5>
+                            <p class="text-muted mb-0">Изменяйте процент наценки для каждого города</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="showAddCityModal()">
+                            <i class="bi bi-plus-circle"></i> Добавить город
+                        </button>
+                    </div>
+
+                    <div id="markupContainer">
+                        <!-- Динамически загружается -->
+                    </div>
+
+                    <button class="btn btn-save mt-3" onclick="saveMarkups()">
+                        <i class="bi bi-save"></i> Сохранить изменения
+                    </button>
+                    
+                    <!-- Модальное окно для настройки наценок по парам -->
+                    <div class="modal fade" id="pairMarkupsModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="pairMarkupsTitle">Наценки по парам</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="text-muted">Настройте специфичные наценки для отдельных торговых пар. Если не задано - используется базовая наценка города.</p>
+                                    <div id="pairMarkupsContainer"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Модальное окно для добавления города -->
+                    <div class="modal fade" id="addCityModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Добавить новый город</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Код города (латиницей):</label>
+                                        <input type="text" class="form-control" id="newCityCode" placeholder="voronezh">
+                                        <small class="text-muted">Используется в URL и коде</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Название города:</label>
+                                        <input type="text" class="form-control" id="newCityName" placeholder="Воронеж">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Наценка (%):</label>
+                                        <input type="number" class="form-control" id="newCityMarkup" value="0.5" step="0.1" min="0" max="10">
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newCityEnabled" checked>
+                                        <label class="form-check-label" for="newCityEnabled">Активен</label>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                    <button type="button" class="btn btn-primary" onclick="addCity()">Добавить</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Торговые пары -->
+                <div class="tab-pane fade" id="pairs" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0">Управление торговыми парами</h5>
+                            <p class="text-muted mb-0">Добавляйте пары из различных источников</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="showAddPairModal()">
+                            <i class="bi bi-plus-circle"></i> Добавить пару
+                        </button>
+                    </div>
+
+                    <table class="table rate-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Пара</th>
+                                <th>Источник</th>
+                                <th>Символ API</th>
+                                <th>Статус</th>
+                                <th>Последний курс</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pairsTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Загрузка...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Модальное окно для добавления пары -->
+                    <div class="modal fade" id="addPairModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Добавить торговую пару</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Источник:</label>
+                                        <select class="form-select" id="newPairSourceSelect">
+                                            <option value="rapira">Rapira Exchange</option>
+                                            <option value="grinex">Grinex Exchange</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Внутренний символ (формат A/B):</label>
+                                        <input type="text" class="form-control" id="newPairInternal" placeholder="ETH/USDT">
+                                        <small class="text-muted">Как будет отображаться в системе</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Символ в API источника:</label>
+                                        <input type="text" class="form-control" id="newPairSourceSymbol" placeholder="ETH/USDT или ethusdt">
+                                        <small class="text-muted">Формат символа в API источника</small>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newPairEnabled" checked>
+                                        <label class="form-check-label">Активна</label>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                    <button type="button" class="btn btn-primary" onclick="addPair()">Добавить</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Источники данных -->
+                <div class="tab-pane fade" id="sources" role="tabpanel">
+                    <h5 class="mb-3">Управление источниками курсов</h5>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="city-row">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <span class="rate-badge rapira">Rapira Exchange</span>
+                                        </h6>
+                                        <p class="text-muted mb-0 small">
+                                            Публичный API: <code>api.rapira.net</code>
+                                        </p>
+                                        <p class="mb-0 small" id="rapiraStatus">Статус: проверка...</p>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="rapiraEnabled" onchange="toggleSource('rapira', this.checked)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="city-row">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <span class="rate-badge grinex">Grinex Exchange</span>
+                                        </h6>
+                                        <p class="text-muted mb-0 small">
+                                            API: <code>api.grinex.io</code>
+                                        </p>
+                                        <p class="mb-0 small" id="grinexStatus">Статус: проверка...</p>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="grinexEnabled" onchange="toggleSource('grinex', this.checked)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4 mb-3">Последние синхронизации</h5>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Источник</th>
+                                <th>Время</th>
+                                <th>Пары</th>
+                                <th>Статус</th>
+                                <th>Длительность</th>
+                            </tr>
+                        </thead>
+                        <tbody id="syncLogsBody">
+                            <tr>
+                                <td colspan="5" class="text-center">Загрузка...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const cities = {
+            'moscow': 'Москва',
+            'spb': 'Санкт-Петербург',
+            'rostov': 'Ростов-на-Дону',
+            'nizhniy_novgorod': 'Нижний Новгород',
+            'ekaterinburg': 'Екатеринбург',
+            'kazan': 'Казань',
+            'other': 'Другие города'
+        };
+
+        // Загрузка данных при открытии
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePairSelector().then(() => {
+                loadRates();
+            });
+            loadMarkups();
+            loadSources();
+            loadSyncLogs();
+            updateLastSync();
+            
+            // Обновляем каждые 30 секунд
+            setInterval(updateLastSync, 30000);
+        });
+
+        // Загрузка текущих курсов
+        let loadingRates = false;
+        
+        async function loadRates() {
+            if (loadingRates) return; // Предотвращаем множественные запросы
+            loadingRates = true;
+            
+            const pair = document.getElementById('pairSelect').value;
+            const tbody = document.getElementById('ratesTableBody');
+            
+            // Показываем индикатор загрузки
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div></td></tr>';
+            
+            try {
+                const response = await fetch(`/api/city-rates/all?symbol=${encodeURIComponent(pair)}`, {
+                    cache: 'no-cache' // Отключаем кэш браузера
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.rates && Object.keys(data.rates).length > 0) {
+                    let html = '';
+                    
+                    // Сортируем города в нужном порядке
+                    const cityOrder = ['moscow', 'spb', 'rostov', 'nizhniy_novgorod', 'ekaterinburg', 'kazan', 'other'];
+                    
+                    cityOrder.forEach(city => {
+                        if (data.rates[city]) {
+                            const cityData = data.rates[city];
+                            const cityName = cities[city] || city;
+                            html += `
+                                <tr>
+                                    <td><strong>${cityName}</strong></td>
+                                    <td>${cityData.base_rate ? cityData.base_rate.toFixed(2) : 'N/A'}</td>
+                                    <td><span class="badge bg-info">${cityData.markup_percent ? cityData.markup_percent.toFixed(1) : 0}%</span></td>
+                                    <td><strong class="text-success">${cityData.final_rate ? cityData.final_rate.toFixed(2) : 'N/A'}</strong></td>
+                                    <td><span class="rate-badge ${cityData.best_source || 'rapira'}">${cityData.best_source || 'rapira'}</span></td>
+                                </tr>
+                            `;
+                        }
+                    });
+                    
+                    tbody.innerHTML = html || '<tr><td colspan="5" class="text-center">Нет данных</td></tr>';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-warning text-center">Нет доступных курсов для этой пары</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Ошибка загрузки: ' + error.message + '</td></tr>';
+                console.error('Error loading rates:', error);
+            } finally {
+                loadingRates = false;
+            }
+        }
+
+        // Загрузка и редактирование наценок
+        async function loadMarkups() {
+            const container = document.getElementById('markupContainer');
+            
+            try {
+                const response = await fetch('/api/cities');
+                const citiesData = await response.json();
+                
+                // Обновляем глобальный объект cities
+                citiesData.forEach(city => {
+                    cities[city.code] = city.name;
+                });
+                
+                let html = '';
+                citiesData.forEach(city => {
+                    html += `
+                        <div class="city-row">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <strong>${city.name}</strong>
+                                    <br><small class="text-muted">${city.code}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Базовая:</span>
+                                        <input type="number" 
+                                               class="form-control markup-input" 
+                                               id="markup_${city.code}" 
+                                               value="${city.markup_percent}" 
+                                               step="0.1" 
+                                               min="0" 
+                                               max="10"
+                                               data-city-id="${city.id}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge ${city.enabled ? 'bg-success' : 'bg-secondary'}">
+                                        ${city.enabled ? 'Активен' : 'Отключен'}
+                                    </span>
+                                </div>
+                                <div class="col-md-5 text-end">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="showPairMarkups(${city.id}, '${city.name}', '${city.code}')">
+                                        <i class="bi bi-sliders"></i> По парам
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCity(${city.id}, '${city.name}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html || '<div class="alert alert-info">Нет городов. Добавьте первый город.</div>';
+            } catch (error) {
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки городов</div>';
+                console.error('Error loading markups:', error);
+            }
+        }
+
+        // Сохранение наценок
+        async function saveMarkups() {
+            const inputs = document.querySelectorAll('.markup-input');
+            let successCount = 0;
+            
+            try {
+                for (const input of inputs) {
+                    const cityId = input.getAttribute('data-city-id');
+                    const percent = parseFloat(input.value);
+                    
+                    await fetch(`/api/cities/${cityId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            markup_percent: percent
+                        })
+                    });
+                    successCount++;
+                }
+                
+                alert(`✅ Обновлено наценок: ${successCount}`);
+                loadRates(); // Обновляем таблицу курсов
+                loadMarkups(); // Перезагружаем список
+            } catch (error) {
+                alert('❌ Ошибка при сохранении: ' + error.message);
+            }
+        }
+
+        // Загрузка статуса источников
+        async function loadSources() {
+            try {
+                const response = await fetch('/api/fx/sources');
+                const sources = await response.json();
+                
+                sources.forEach(source => {
+                    const checkbox = document.getElementById(`${source.code}Enabled`);
+                    if (checkbox) {
+                        checkbox.checked = source.enabled;
+                    }
+                    
+                    const status = document.getElementById(`${source.code}Status`);
+                    if (status) {
+                        const statusText = source.enabled ? 
+                            `<span class="text-success">✓ Активен</span>` : 
+                            `<span class="text-muted">○ Отключен</span>`;
+                        status.innerHTML = `Статус: ${statusText}`;
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading sources:', error);
+            }
+        }
+
+        // Включение/выключение источника
+        async function toggleSource(code, enabled) {
+            try {
+                await fetch(`/api/fx/sources/${code}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({enabled: enabled})
+                });
+                
+                loadSources();
+                setTimeout(loadRates, 1000); // Обновляем курсы через секунду
+            } catch (error) {
+                alert('Ошибка при изменении статуса источника');
+                console.error(error);
+            }
+        }
+
+        // Загрузка логов синхронизации
+        async function loadSyncLogs() {
+            try {
+                const response = await fetch('/api/fx/logs?limit=10');
+                const logs = await response.json();
+                
+                const tbody = document.getElementById('syncLogsBody');
+                let html = '';
+                
+                logs.forEach(log => {
+                    const statusClass = log.status === 'success' ? 'success' : 
+                                      log.status === 'partial' ? 'warning' : 'error';
+                    const time = new Date(log.started_at).toLocaleString('ru-RU');
+                    
+                    html += `
+                        <tr>
+                            <td><span class="rate-badge ${log.source_code}">${log.source_name}</span></td>
+                            <td>${time}</td>
+                            <td>${log.pairs_succeeded}/${log.pairs_processed}</td>
+                            <td><span class="status-badge ${statusClass}">${log.status}</span></td>
+                            <td>${log.duration_ms} мс</td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html || '<tr><td colspan="5" class="text-center">Нет данных</td></tr>';
+            } catch (error) {
+                console.error('Error loading sync logs:', error);
+            }
+        }
+
+        // Принудительная синхронизация
+        async function syncNow() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Синхронизация...';
+            
+            try {
+                await fetch('/api/fx/sync', {method: 'POST'});
+                alert('✅ Синхронизация запущена!');
+                setTimeout(() => {
+                    loadRates();
+                    loadSyncLogs();
+                }, 3000);
+            } catch (error) {
+                alert('❌ Ошибка синхронизации');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Синхронизировать';
+            }
+        }
+
+        // Обновление времени последней синхронизации
+        async function updateLastSync() {
+            try {
+                const response = await fetch('/api/fx/logs?limit=1');
+                const logs = await response.json();
+                
+                if (logs.length > 0) {
+                    const lastLog = logs[0];
+                    const time = new Date(lastLog.started_at);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - time) / 60000);
+                    
+                    const timeText = diffMinutes < 1 ? 'только что' : 
+                                   diffMinutes < 60 ? `${diffMinutes} мин назад` : 
+                                   `${Math.floor(diffMinutes/60)} ч назад`;
+                    
+                    document.getElementById('lastSync').textContent = `Последнее обновление: ${timeText}`;
+                }
+            } catch (error) {
+                console.error('Error updating last sync:', error);
+            }
+        }
+
+        // ============================================================================
+        // УПРАВЛЕНИЕ ГОРОДАМИ
+        // ============================================================================
+
+        function showAddCityModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addCityModal'));
+            modal.show();
+        }
+
+        async function addCity() {
+            const code = document.getElementById('newCityCode').value.trim();
+            const name = document.getElementById('newCityName').value.trim();
+            const markup = parseFloat(document.getElementById('newCityMarkup').value);
+            const enabled = document.getElementById('newCityEnabled').checked;
+            
+            if (!code || !name) {
+                alert('❌ Заполните код и название города');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/cities', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        code: code,
+                        name: name,
+                        markup_percent: markup,
+                        markup_fixed: 0,
+                        enabled: enabled
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ Город "${name}" добавлен!`);
+                    bootstrap.Modal.getInstance(document.getElementById('addCityModal')).hide();
+                    
+                    // Очищаем форму
+                    document.getElementById('newCityCode').value = '';
+                    document.getElementById('newCityName').value = '';
+                    document.getElementById('newCityMarkup').value = '0.5';
+                    document.getElementById('newCityEnabled').checked = true;
+                    
+                    // Обновляем списки
+                    loadMarkups();
+                    loadRates();
+                    
+                    // Добавляем в cities объект
+                    cities[code] = name;
+                } else {
+                    alert('❌ Ошибка: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Ошибка при добавлении города: ' + error.message);
+            }
+        }
+
+        async function deleteCity(cityId, cityName) {
+            if (!confirm(`Удалить город "${cityName}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/cities/${cityId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ Город удалён`);
+                    loadMarkups();
+                    loadRates();
+                }
+            } catch (error) {
+                alert('❌ Ошибка при удалении: ' + error.message);
+            }
+        }
+
+        async function showPairMarkups(cityId, cityName, cityCode) {
+            document.getElementById('pairMarkupsTitle').textContent = `Наценки по парам: ${cityName}`;
+            
+            const container = document.getElementById('pairMarkupsContainer');
+            container.innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+            
+            try {
+                // Загружаем все пары
+                const pairsResponse = await fetch('/api/fx/all-pairs');
+                const pairs = await pairsResponse.json();
+                
+                // Загружаем существующие наценки для города
+                const markupsResponse = await fetch(`/api/city-pair-markups?city_id=${cityId}`);
+                const existingMarkups = await markupsResponse.json();
+                
+                // Получаем базовую наценку города
+                const citiesResponse = await fetch('/api/cities');
+                const citiesData = await citiesResponse.json();
+                const cityData = citiesData.find(c => c.id === cityId);
+                const baseMarkup = cityData ? cityData.markup_percent : 0;
+                
+                let html = `
+                    <div class="alert alert-info">
+                        <strong>Базовая наценка города:</strong> ${baseMarkup}%<br>
+                        <small>Применяется ко всем парам, если не задана специфичная наценка</small>
+                    </div>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Торговая пара</th>
+                                <th>Наценка (%)</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                // Получаем уникальные пары
+                const uniquePairs = [...new Set(pairs.map(p => p.internal_symbol))];
+                
+                uniquePairs.forEach(pairSymbol => {
+                    const existing = existingMarkups.find(m => m.pair_symbol === pairSymbol);
+                    const currentMarkup = existing ? existing.markup_percent : '';
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${pairSymbol}</strong></td>
+                            <td>
+                                <div class="input-group input-group-sm" style="max-width: 200px;">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="pair_markup_${cityId}_${pairSymbol.replace('/', '_')}"
+                                           value="${currentMarkup}"
+                                           placeholder="${baseMarkup} (базовая)"
+                                           step="0.1" 
+                                           min="0" 
+                                           max="10">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success" onclick="savePairMarkup(${cityId}, '${pairSymbol}', '${cityCode}')">
+                                    <i class="bi bi-check"></i> Сохранить
+                                </button>
+                                ${existing ? `
+                                <button class="btn btn-sm btn-outline-danger" onclick="deletePairMarkup(${existing.id}, ${cityId})">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+                
+                const modal = new bootstrap.Modal(document.getElementById('pairMarkupsModal'));
+                modal.show();
+                
+            } catch (error) {
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки</div>';
+                console.error(error);
+            }
+        }
+
+        async function savePairMarkup(cityId, pairSymbol, cityCode) {
+            const inputId = `pair_markup_${cityId}_${pairSymbol.replace('/', '_')}`;
+            const input = document.getElementById(inputId);
+            const value = input.value.trim();
+            
+            if (!value) {
+                alert('Введите наценку или удалите специфичное правило');
+                return;
+            }
+            
+            try {
+                await fetch('/api/city-pair-markups', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        city_id: cityId,
+                        pair_symbol: pairSymbol,
+                        markup_percent: parseFloat(value),
+                        markup_fixed: 0
+                    })
+                });
+                
+                alert(`✅ Наценка для ${pairSymbol} сохранена!`);
+                // Обновляем курсы если выбрана эта пара
+                const currentPair = document.getElementById('pairSelect').value;
+                if (currentPair === pairSymbol) {
+                    loadRates();
+                }
+            } catch (error) {
+                alert('❌ Ошибка: ' + error.message);
+            }
+        }
+
+        async function deletePairMarkup(markupId, cityId) {
+            try {
+                await fetch(`/api/city-pair-markups/${markupId}`, {
+                    method: 'DELETE'
+                });
+                
+                alert('✅ Специфичная наценка удалена (используется базовая)');
+                // Перезагружаем модальное окно
+                const cityName = document.getElementById('pairMarkupsTitle').textContent.split(': ')[1];
+                // Закрываем и снова открываем
+                bootstrap.Modal.getInstance(document.getElementById('pairMarkupsModal')).hide();
+            } catch (error) {
+                alert('❌ Ошибка: ' + error.message);
+            }
+        }
+
+        // ============================================================================
+        // УПРАВЛЕНИЕ ТОРГОВЫМИ ПАРАМИ
+        // ============================================================================
+
+        async function loadPairs() {
+            const tbody = document.getElementById('pairsTableBody');
+            
+            try {
+                const response = await fetch('/api/fx/all-pairs');
+                const pairs = await response.json();
+                
+                let html = '';
+                pairs.forEach(pair => {
+                    const statusBadge = pair.enabled ? 
+                        '<span class="badge bg-success">Активна</span>' : 
+                        '<span class="badge bg-secondary">Отключена</span>';
+                    
+                    const lastRate = pair.last_rate ? pair.last_rate.toFixed(2) : 'N/A';
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${pair.internal_symbol}</strong></td>
+                            <td><span class="rate-badge ${pair.source_code}">${pair.source_name}</span></td>
+                            <td><code>${pair.source_symbol}</code></td>
+                            <td>${statusBadge}</td>
+                            <td>${lastRate}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deletePair(${pair.id}, '${pair.internal_symbol}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html || '<tr><td colspan="6" class="text-center">Нет пар</td></tr>';
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">Ошибка загрузки</td></tr>';
+                console.error('Error loading pairs:', error);
+            }
+        }
+
+        function showAddPairModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addPairModal'));
+            modal.show();
+        }
+
+        async function addPair() {
+            const sourceCode = document.getElementById('newPairSourceSelect').value;
+            const internalSymbol = document.getElementById('newPairInternal').value.trim().toUpperCase();
+            const sourceSymbol = document.getElementById('newPairSourceSymbol').value.trim();
+            const enabled = document.getElementById('newPairEnabled').checked;
+            
+            if (!internalSymbol || !sourceSymbol) {
+                alert('❌ Заполните все поля');
+                return;
+            }
+            
+            // Проверяем формат A/B
+            if (!internalSymbol.includes('/')) {
+                alert('❌ Внутренний символ должен быть в формате A/B (например ETH/USDT)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/fx/source-pairs', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        source_code: sourceCode,
+                        source_symbol: sourceSymbol,
+                        internal_symbol: internalSymbol,
+                        enabled: enabled
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ Пара "${internalSymbol}" добавлена!`);
+                    bootstrap.Modal.getInstance(document.getElementById('addPairModal')).hide();
+                    
+                    // Очищаем форму
+                    document.getElementById('newPairInternal').value = '';
+                    document.getElementById('newPairSourceSymbol').value = '';
+                    document.getElementById('newPairEnabled').checked = true;
+                    
+                    // Обновляем списки
+                    loadPairs();
+                    
+                    // Обновляем селектор пар в первой вкладке
+                    updatePairSelector();
+                } else {
+                    alert('❌ Ошибка: ' + (result.error || response.statusText));
+                }
+            } catch (error) {
+                alert('❌ Ошибка при добавлении пары: ' + error.message);
+            }
+        }
+
+        async function deletePair(pairId, symbol) {
+            if (!confirm(`Удалить пару "${symbol}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/fx/source-pairs/${pairId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ Пара удалена`);
+                    loadPairs();
+                    updatePairSelector();
+                }
+            } catch (error) {
+                alert('❌ Ошибка при удалении: ' + error.message);
+            }
+        }
+
+        async function updatePairSelector() {
+            // Обновляем селектор пар на вкладке "Текущие курсы"
+            const select = document.getElementById('pairSelect');
+            const currentValue = select.value;
+            
+            try {
+                const response = await fetch('/api/fx/all-pairs');
+                const pairs = await response.json();
+                
+                select.innerHTML = '';
+                pairs.forEach(pair => {
+                    if (pair.enabled) {
+                        const option = document.createElement('option');
+                        option.value = pair.internal_symbol;
+                        option.textContent = pair.internal_symbol;
+                        select.appendChild(option);
+                    }
+                });
+                
+                // Восстанавливаем выбранное значение или выбираем первое
+                if (Array.from(select.options).some(opt => opt.value === currentValue)) {
+                    select.value = currentValue;
+                } else if (select.options.length > 0) {
+                    select.value = select.options[0].value;
+                }
+            } catch (error) {
+                console.error('Error updating pair selector:', error);
+            }
+        }
+
+        // Загрузка пар при открытии вкладки
+        document.getElementById('pairs-tab').addEventListener('shown.bs.tab', function() {
+            loadPairs();
+        });
+    </script>
+</body>
+</html>
+

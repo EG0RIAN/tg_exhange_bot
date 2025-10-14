@@ -14,9 +14,10 @@ from src.handlers.faq import router as faq_router
 from src.handlers.livechat import router as livechat_router
 from src.handlers.admin import router as admin_router
 from src.handlers.admin_content import router as admin_content_router
-from src.handlers.admin_rapira import router as admin_rapira_router
+from src.handlers.admin_grinex import router as admin_grinex_router
 from src.handlers.settings import router as settings_router
 from src.scheduler import start_scheduler
+from src.services.fx_scheduler import start_fx_scheduler, stop_fx_scheduler
 
 load_dotenv()
 
@@ -32,6 +33,10 @@ async def main():
     structlog.configure(processors=[structlog.processors.JSONRenderer()])
     logging.basicConfig(level=logging.INFO)
     start_scheduler()
+    
+    # Запускаем планировщик курсов FX
+    await start_fx_scheduler()
+    
     dp.include_router(menu_router)
     dp.include_router(fsm_request_router)
     dp.include_router(faq_router)
@@ -39,8 +44,13 @@ async def main():
     dp.include_router(livechat_router)
     dp.include_router(admin_router)
     dp.include_router(admin_content_router)
-    dp.include_router(admin_rapira_router)
-    await dp.start_polling(bot)
+    dp.include_router(admin_grinex_router)
+    
+    try:
+        await dp.start_polling(bot)
+    finally:
+        # Останавливаем планировщик при завершении
+        await stop_fx_scheduler()
 
 if __name__ == "__main__":
     asyncio.run(main()) 

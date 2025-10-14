@@ -49,9 +49,17 @@ async def format_rates_display():
     return "\n".join(result)
 
 async def get_pairs_for_fsm():
-    """Получить пары для FSM в формате base_quote"""
-    pairs = await get_trading_pairs()
-    return [f"{p['base_currency']}_{p['quote_currency']}" for p in pairs]
+    """Получить пары для FSM из fx_source_pair (унифицированный источник)"""
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        # Получаем уникальные internal_symbol из fx_source_pair
+        rows = await conn.fetch("""
+            SELECT DISTINCT internal_symbol
+            FROM fx_source_pair
+            WHERE enabled = true
+            ORDER BY internal_symbol
+        """)
+        return [row['internal_symbol'] for row in rows]
 
 async def get_payout_methods_for_pair(pair_code):
     """Получить способы выплаты для пары"""

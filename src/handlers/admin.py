@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 import os
 from src.services.rates import get_all_rates, update_rate, add_rate, import_rapira_rates
-from src.keyboards import get_admin_menu_keyboard, get_rates_list_keyboard
+from src.keyboards import get_admin_menu_keyboard, get_rates_list_keyboard, get_admin_integrations_keyboard
 from aiogram.fsm.state import StatesGroup, State
 from src.services.faq import add_category, get_questions_in_category, add_question, update_question, delete_question, get_category_name
 from src.keyboards import get_admin_faq_categories_keyboard, get_admin_faq_questions_keyboard, get_admin_faq_edit_keyboard
@@ -246,4 +246,94 @@ async def admin_logs_level(callback: CallbackQuery, state: FSMContext):
     level = callback.data.split("_", 2)[-1]
     logs = await get_logs(level=level)
     text = "\n".join([f"[{l['created_at']:%Y-%m-%d %H:%M}] {l['level'].upper()}: {l['message'][:80]}" for l in logs]) or "Нет записей."
-    await callback.message.edit_text(f"Последние {level} логи:\n{text}", reply_markup=get_logs_filter_keyboard()) 
+    await callback.message.edit_text(f"Последние {level} логи:\n{text}", reply_markup=get_logs_filter_keyboard())
+
+# --- Интеграции ---
+@router.callback_query(F.data == "admin_integrations")
+async def admin_integrations(callback: CallbackQuery):
+    """Показывает меню интеграций"""
+    if not await is_admin(callback):
+        await callback.answer("Доступ запрещён.", show_alert=True)
+        return
+    
+    text = "🌐 **Интеграции с биржами**\n\n"
+    text += "Выберите интеграцию для управления:"
+    
+    await callback.message.edit_text(text, reply_markup=get_admin_integrations_keyboard(), parse_mode="Markdown")
+
+@router.callback_query(F.data == "admin_grinex")
+async def admin_grinex_redirect(callback: CallbackQuery):
+    """Перенаправляет на статус Grinex"""
+    if not await is_admin(callback):
+        await callback.answer("Доступ запрещён.", show_alert=True)
+        return
+    
+    # Импортируем функцию из admin_grinex
+    from src.handlers.admin_grinex import cmd_grinex_status
+    await cmd_grinex_status(callback.message)
+
+@router.callback_query(F.data == "admin_city_rates")
+async def admin_city_rates_redirect(callback: CallbackQuery):
+    """Перенаправляет на универсальную панель управления курсами"""
+    if not await is_admin(callback):
+        await callback.answer("Доступ запрещён.", show_alert=True)
+        return
+    
+    text = "💱 **Управление курсами**\n\n"
+    text += "Универсальная панель для управления:\n"
+    text += "• Текущими курсами\n"
+    text += "• Городскими наценками\n"
+    text += "• Источниками данных (Rapira, Grinex)\n\n"
+    text += "📊 **Логика:**\n"
+    text += "1. Базовый курс из Rapira/Grinex\n"
+    text += "2. Применяем наценку города\n"
+    text += "3. Отдаем финальный курс\n\n"
+    text += "**Web Admin:**\n"
+    text += "http://localhost:8000/admin/rates-management\n\n"
+    text += "**Примеры наценок:**\n"
+    text += "• Москва: 0% (базовый)\n"
+    text += "• Ростов: +1%\n"
+    text += "• Нижний Новгород: +0.8%\n"
+    text += "• СПб: +0.3%"
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_integrations")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+
+@router.callback_query(F.data == "admin_fx_system")
+async def admin_fx_system(callback: CallbackQuery):
+    """Показывает статус FX системы"""
+    if not await is_admin(callback):
+        await callback.answer("Доступ запрещён.", show_alert=True)
+        return
+    
+    from src.services.fx_scheduler import get_fx_scheduler
+    
+    scheduler = await get_fx_scheduler()
+    status = scheduler.get_status()
+    
+    text = "📊 **FX Rates System Status**\n\n"
+    text += f"**Планировщик:** {'🟢 Работает' if status['running'] else '🔴 Остановлен'}\n\n"
+    
+    if status['last_sync']:
+        text += "**Последние синхронизации:**\n"
+        for source, time in status['last_sync'].items():
+            text += f"• {source}: {time}\n"
+    
+    if status['config']:
+        text += f"\n**Настройки:**\n"
+        text += f"• Интервал: {status['config']['update_interval_seconds']}s\n"
+        text += f"• Stale threshold: {status['config']['stale_threshold_seconds']}s\n"
+    
+    text += f"\n**Web Admin:** http://localhost:8000/admin/rates-management"
+    text += f"\n\n💱 Универсальная панель управления курсами"
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_integrations")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown") 

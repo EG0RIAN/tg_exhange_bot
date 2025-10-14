@@ -1,0 +1,43 @@
+# ============================================================================
+# FX RATES MODULE - Environment Variables Example
+# Скопируйте эти настройки в ваш .env файл
+# ============================================================================
+
+# FX Scheduler Settings
+FX_UPDATE_INTERVAL_SECONDS=60          # Интервал автоматического обновления курсов (секунды)
+FX_STALE_CHECK_INTERVAL=300            # Интервал проверки устаревших данных (секунды, 5 минут)
+FX_STALE_THRESHOLD_SECONDS=180         # Порог устаревания данных (секунды, 3 минуты)
+
+# Grinex Exchange API
+GRINEX_API_BASE=https://api.grinex.io  # Базовый URL API Grinex
+GRINEX_TIMEOUT=5                        # Таймаут HTTP запросов (секунды)
+GRINEX_MAX_RETRIES=3                    # Количество повторных попыток при ошибках
+
+# Rapira Exchange API (уже существующие настройки)
+RAPIRA_API_BASE=https://api.rapira.net # Базовый URL API Rapira
+RAPIRA_TIMEOUT=10                       # Таймаут HTTP запросов (секунды)
+RAPIRA_MAX_RETRIES=3                    # Количество повторных попыток
+RAPIRA_CACHE_TTL=5                      # TTL кэша в Redis (секунды)
+RAPIRA_STALE_TTL=30                     # TTL для stale данных (секунды)
+RAPIRA_VWAP_AMOUNT=50000                # Объем для VWAP расчетов (USD)
+
+# ============================================================================
+# ПРИМЕРЫ НАСТРОЕК ДЛЯ РАЗНЫХ СЦЕНАРИЕВ
+# ============================================================================
+
+# Агрессивное обновление (для высоковолатильных рынков)
+# FX_UPDATE_INTERVAL_SECONDS=30
+# FX_STALE_THRESHOLD_SECONDS=60
+
+# Консервативное обновление (для стабильных рынков)
+# FX_UPDATE_INTERVAL_SECONDS=300
+# FX_STALE_THRESHOLD_SECONDS=600
+
+# Development (быстрое тестирование)
+# FX_UPDATE_INTERVAL_SECONDS=10
+# FX_STALE_THRESHOLD_SECONDS=30
+
+# Production (оптимальные настройки)
+# FX_UPDATE_INTERVAL_SECONDS=60
+# FX_STALE_THRESHOLD_SECONDS=180
+

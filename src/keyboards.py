@@ -37,6 +37,40 @@ def get_payout_keyboard(methods: list[str]) -> InlineKeyboardMarkup:
     )
     return add_back_button(kb)
 
+async def get_cities_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора города (динамическая из БД)"""
+    from src.db import get_pg_pool
+    
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        cities = await conn.fetch("""
+            SELECT code, name FROM cities 
+            WHERE enabled = true 
+            ORDER BY sort_order, name
+        """)
+    
+    # Эмодзи для городов
+    city_emojis = {
+        'moscow': '🏛',
+        'spb': '🌉',
+        'rostov': '🏭',
+        'nizhniy_novgorod': '🏰',
+        'ekaterinburg': '🏢',
+        'kazan': '🕌',
+        'other': '🌍'
+    }
+    
+    buttons = []
+    for city in cities:
+        emoji = city_emojis.get(city['code'], '🏙')
+        buttons.append([InlineKeyboardButton(
+            text=f"{emoji} {city['name']}", 
+            callback_data=f"city:{city['code']}"
+        )])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return add_back_button(kb)
+
 def get_confirm_keyboard():
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -86,6 +120,7 @@ def get_admin_menu_keyboard():
             [InlineKeyboardButton(text="Рассылка", callback_data="admin_broadcast")],
             [InlineKeyboardButton(text="Логи", callback_data="admin_logs")],
             [InlineKeyboardButton(text="Контент", callback_data="admin_content")],
+            [InlineKeyboardButton(text="🌐 Интеграции", callback_data="admin_integrations")],
         ]
     )
 
@@ -94,6 +129,16 @@ def get_admin_content_keyboard():
         inline_keyboard=[
             [InlineKeyboardButton(text="Торговые пары", callback_data="admin_trading_pairs")],
             [InlineKeyboardButton(text="Способы выплаты", callback_data="admin_payout_methods")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")],
+        ]
+    )
+
+def get_admin_integrations_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🟢 Grinex Exchange", callback_data="admin_grinex")],
+            [InlineKeyboardButton(text="📊 FX Rates System", callback_data="admin_fx_system")],
+            [InlineKeyboardButton(text="🌍 Курсы по городам", callback_data="admin_city_rates")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")],
         ]
     )

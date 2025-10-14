@@ -349,7 +349,7 @@ async def get_rates(pairs: list[str], bot=None):
     
     # Alert в админ-чат при ошибках
     if bot and ADMIN_IDS and not rates:
-                for admin_id in ADMIN_IDS:
+        for admin_id in ADMIN_IDS:
             await bot.send_message(admin_id, f"[ALERT] Rapira API недоступен для всех пар")
     
     return rates 

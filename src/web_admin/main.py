@@ -5,7 +5,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 import os
 import asyncpg
+import logging
 from typing import Optional
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("ADMIN_SECRET_KEY", "supersecret"))
@@ -60,6 +64,13 @@ async def admin_dashboard(request: Request, user=Depends(get_current_user)):
     if not user:
         return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("admin_dashboard.html", {"request": request, "user": user})
+
+@app.get("/admin/rates-management", response_class=HTMLResponse)
+async def rates_management(request: Request, user=Depends(get_current_user)):
+    """Универсальная страница управления курсами"""
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("rates_management.html", {"request": request, "user": user})
 
 # Trading Pairs CRUD
 @app.get("/admin/trading-pairs", response_class=HTMLResponse)
@@ -169,27 +180,23 @@ async def delete_trading_pair(request: Request, pair_id: int, user=Depends(get_c
 # Rate Tiers CRUD
 @app.get("/admin/rates", response_class=HTMLResponse)
 async def rates_list(request: Request, user=Depends(get_current_user)):
+    """Перенаправление на новую универсальную панель управления курсами"""
     if not user:
         return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
     
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        rates = await conn.fetch("""
-            SELECT rt.id, rt.min_amount, rt.max_amount, rt.rate, rt.is_active,
-                   tp.base_name, tp.quote_name, tp.base_currency, tp.quote_currency
-            FROM rate_tiers rt
-            JOIN trading_pairs tp ON rt.pair_id = tp.id
-            ORDER BY tp.sort_order, tp.id, rt.min_amount
-        """)
-    
-    return templates.TemplateResponse("rates.html", {
-        "request": request, 
-        "user": user, 
-        "rates": rates
-    })
+    # Перенаправляем на новую универсальную панель
+    return RedirectResponse("/admin/rates-management", status_code=status.HTTP_302_FOUND)
 
 @app.get("/admin/rates/add", response_class=HTMLResponse)
 async def add_rate_form(request: Request, user=Depends(get_current_user)):
+    """Перенаправление на новую универсальную панель"""
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    
+    return RedirectResponse("/admin/rates-management", status_code=status.HTTP_302_FOUND)
+
+@app.get("/admin/rates/add_old", response_class=HTMLResponse)
+async def add_rate_form_old(request: Request, user=Depends(get_current_user)):
     if not user:
         return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
     
@@ -239,34 +246,11 @@ async def add_rate(
 
 @app.get("/admin/rates/{rate_id}/edit", response_class=HTMLResponse)
 async def edit_rate_form(request: Request, rate_id: int, user=Depends(get_current_user)):
+    """Перенаправление на новую универсальную панель"""
     if not user:
         return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
     
-    pool = await get_db_pool()
-    async with pool.acquire() as conn:
-        rate = await conn.fetchrow("""
-            SELECT rt.id, rt.pair_id, rt.min_amount, rt.max_amount, rt.rate, rt.is_active,
-                   tp.base_name, tp.quote_name
-            FROM rate_tiers rt
-            JOIN trading_pairs tp ON rt.pair_id = tp.id
-            WHERE rt.id = $1
-        """, rate_id)
-        
-        pairs = await conn.fetch("""
-            SELECT id, base_name, quote_name, base_currency, quote_currency
-            FROM trading_pairs WHERE is_active = true
-            ORDER BY sort_order, id
-        """)
-    
-    if not rate:
-        return RedirectResponse("/admin/rates", status_code=status.HTTP_302_FOUND)
-    
-    return templates.TemplateResponse("rate_form.html", {
-        "request": request, 
-        "user": user, 
-        "rate": rate,
-        "pairs": pairs
-    })
+    return RedirectResponse("/admin/rates-management", status_code=status.HTTP_302_FOUND)
 
 @app.post("/admin/rates/{rate_id}/edit")
 async def edit_rate(
@@ -942,492 +926,789 @@ from fastapi import HTTPException
 import json
 from datetime import datetime, timedelta
 
-# Rapira Status Page
-@app.get("/rapira", response_class=HTMLResponse)
-async def rapira_status_page(request: Request, user=Depends(get_current_user)):
-    if not user:
-        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("rapira_status.html", {"request": request, "user": user})
+# ============================================================================
+# FX RATES MODULE - API Endpoints
+# ============================================================================
 
-# Rapira Settings Page
-@app.get("/rapira/settings", response_class=HTMLResponse)
-async def rapira_settings_page(request: Request, user=Depends(get_current_user)):
-    if not user:
-        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("rapira_settings.html", {"request": request, "user": user})
+from fastapi import HTTPException
+from src.services.fx_rates import get_fx_service
+from src.services.fx_scheduler import get_fx_scheduler
 
-# Rapira Test Page
-@app.get("/rapira/test", response_class=HTMLResponse)
-async def rapira_test_page(request: Request, user=Depends(get_current_user)):
-    if not user:
-        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("rapira_test.html", {"request": request, "user": user})
+# FX Sources Management
+# ============================================================================
+# LEGACY HTML PAGES REMOVED - Use /admin/rates-management instead
+# ============================================================================
+# Old routes removed:
+# - /admin/fx/sources
+# - /admin/fx/sources/{source_id}/pairs
+# - /admin/fx/markup-rules
+# - /admin/fx/markup-rules/new
+# - /admin/fx/markup-rules/create
+# - /admin/fx/markup-rules/{rule_id}/delete
+# - /admin/fx/rates
+# - /admin/fx/logs
+#
+# New universal page: /admin/rates-management
+# ============================================================================
 
-# API Endpoints for Rapira Integration
-@app.get("/api/rapira/status")
-async def get_rapira_status(user=Depends(get_current_user)):
+# API Endpoints (used by the new universal rates management page)
+@app.get("/api/fx/rates")
+async def api_get_rates(
+    base: Optional[str] = None,
+    quote: Optional[str] = None,
+    source: Optional[str] = None,
+    stale_ok: bool = False,
+    user=Depends(get_current_user)
+):
+    """API: Получить курсы"""
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    try:
-        # Импортируем сервисы
-        from src.services.rates_scheduler import get_scheduler_status
-        from src.services.rapira import get_rapira_provider
+    fx_service = await get_fx_service()
+    
+    if base and quote:
+        rate = await fx_service.get_final_rate(base, quote, source, allow_stale=stale_ok)
+        if not rate:
+            raise HTTPException(status_code=404, detail="Rate not found")
         
-        # Получаем статус планировщика
-        scheduler_status = await get_scheduler_status()
-        
-        # Получаем статус Rapira API
-        rapira_provider = await get_rapira_provider()
-        rapira_health = rapira_provider.get_health()
-        
-        # Получаем текущие курсы
-        from src.services.rates_calculator import get_rates_calculator
-        calculator = await get_rates_calculator()
-        
-        rates = []
-        pairs = ["USDT/RUB", "BTC/USDT", "EUR/USDT"]
-        
-        for pair in pairs:
-            try:
-                cash_in = await calculator.calculate_rate(pair, "cash_in", location="moscow")
-                cash_out = await calculator.calculate_rate(pair, "cash_out", location="moscow")
-                rates.append({
-                    "pair": pair,
-                    "cash_in": cash_in,
-                    "cash_out": cash_out
-                })
-            except Exception as e:
-                rates.append({
-                    "pair": pair,
-                    "cash_in": None,
-                    "cash_out": None
-                })
-        
-        # История обновлений (заглушка)
-        history = [
-            {
-                "timestamp": datetime.now().isoformat(),
-                "success": True,
-                "details": "Автоматическое обновление курсов"
-            }
-        ]
-        
-        return {
-            "scheduler": scheduler_status,
-            "rapira_health": {
-                "status": "healthy" if rapira_health.is_fresh else "stale",
-                "latency_ms": rapira_health.latency * 1000,
-                "http_code": rapira_health.http_code,
-                "error_count": 0,
-                "last_update": rapira_health.last_update.isoformat() if rapira_health.last_update else None,
-                "last_error": None
+            return {
+            "base": rate.base_currency,
+            "quote": rate.quote_currency,
+            "source": rate.source_code,
+            "final_price": str(rate.final_price),
+            "raw_price": str(rate.raw_price),
+            "applied_rule_id": rate.applied_rule_id,
+            "markup": {
+                "percent": str(rate.markup_percent) if rate.markup_percent else None,
+                "fixed": str(rate.markup_fixed) if rate.markup_fixed else None
             },
-            "rates": rates,
-            "history": history
+            "calculated_at": rate.calculated_at.isoformat(),
+            "stale": rate.stale,
+            "bid": str(rate.bid_price) if rate.bid_price else None,
+            "ask": str(rate.ask_price) if rate.ask_price else None
         }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting status: {str(e)}")
-
-@app.get("/api/rapira/config")
-async def get_rapira_config(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        from src.config.rapira_config import config
+    else:
+        rates = await fx_service.get_all_final_rates(source, allow_stale=stale_ok)
         
         return {
-            "api_base_url": config.API_BASE_URL,
-            "request_timeout": config.REQUEST_TIMEOUT,
-            "max_retries": config.MAX_RETRIES,
-            "retry_delay_base": config.RETRY_DELAY_BASE,
-            "health_check_interval": config.HEALTH_CHECK_INTERVAL,
-            "cache_ttl": config.CACHE_TTL,
-            "stale_ttl": config.STALE_TTL,
-            "update_interval": config.UPDATE_INTERVAL,
-            "vwap_default_amount": config.VWAP_DEFAULT_AMOUNT,
-            "city_spreads": config.CITY_SPREADS,
-            "percent_rules": config.PERCENT_RULES,
-            "log_level": config.LOG_LEVEL,
-            "log_requests": config.LOG_REQUESTS,
-            "log_responses": config.LOG_RESPONSES,
-            "alert_on_errors": config.ALERT_ON_ERRORS,
-            "max_errors_before_alert": config.MAX_ERRORS_BEFORE_ALERT
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting config: {str(e)}")
-
-@app.post("/api/rapira/config")
-async def update_rapira_config(request: Request, user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        config_data = await request.json()
-        
-        # Здесь должна быть логика обновления конфигурации
-        # Пока что просто возвращаем успех
-        
-        return {"success": True, "message": "Configuration updated successfully"}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
-
-@app.post("/api/rapira/force-update")
-async def force_update_rates(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        from src.services.rates import import_rapira_rates
-        
-        # Принудительно обновляем курсы
-        updated_count = await import_rapira_rates()
-        
-        # Также запускаем обновление через планировщик
-        from src.services.rates_scheduler import get_rates_scheduler
-        scheduler = await get_rates_scheduler()
-        await scheduler.force_update()
-        
-        return {
-            "success": True,
-            "message": f"Курсы обновлены успешно! Обновлено пар: {updated_count}",
-            "updated_count": updated_count
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating rates: {str(e)}")
-
-@app.post("/api/rapira/vwap")
-async def calculate_vwap_rate(request: Request, user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        data = await request.json()
-        pair = data.get("pair", "USDT/RUB")
-        amount_usd = data.get("amount_usd", 50000.0)
-        operation = data.get("operation", "cash_in")
-        location = data.get("location", "moscow")
-        
-        from src.services.rates_calculator import get_rates_calculator
-        calculator = await get_rates_calculator()
-        
-        # Конвертируем operation в OperationType
-        from src.services.rates_calculator import OperationType
-        op_type = OperationType.CASH_IN if operation == "cash_in" else OperationType.CASH_OUT
-        
-        result = await calculator.calculate_rate(pair, op_type, amount_usd, location, use_vwap=True)
-        
-        # Вычисляем спред
-        spread = ((result.final_rate - result.base_rate) / result.base_rate) * 100
-        
-        return {
-            "success": True,
-            "data": {
-                "base_rate": result.base_rate,
-                "final_rate": result.final_rate,
-                "spread": spread,
-                "source": result.source,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating VWAP: {str(e)}")
-
-# Test endpoints
-@app.get("/api/rapira/test/plate-mini")
-async def test_plate_mini(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        from src.services.rapira import get_rapira_provider
-        
-        provider = await get_rapira_provider()
-        plate = await provider.get_plate_mini("USDT/RUB")
-        
-        if plate:
-            return {
-                "success": True,
-                "message": "Plate Mini API test successful",
-                "data": {
-                    "symbol": plate.symbol,
-                    "best_bid": plate.best_bid.price if plate.best_bid else None,
-                    "best_ask": plate.best_ask.price if plate.best_ask else None,
-                    "timestamp": plate.ts
+            "rates": [
+                {
+                    "base": r.base_currency,
+                    "quote": r.quote_currency,
+                    "source": r.source_code,
+                    "internal_symbol": r.internal_symbol,
+                    "final_price": str(r.final_price),
+                    "raw_price": str(r.raw_price),
+                    "calculated_at": r.calculated_at.isoformat(),
+                    "stale": r.stale
                 }
-            }
-        else:
-            return {
-                "success": False,
-                "error": "No data received from Plate Mini API"
-            }
-            
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Plate Mini API test failed: {str(e)}"
+                for r in rates
+            ]
         }
 
-@app.get("/api/rapira/test/rates")
-async def test_rates_api(user=Depends(get_current_user)):
+@app.post("/api/fx/sync")
+async def api_trigger_sync(
+    source: Optional[str] = None,
+    user=Depends(get_current_user)
+):
+    """API: Принудительная синхронизация"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    scheduler = await get_fx_scheduler()
+    result = await scheduler.trigger_sync(source)
+    
+    return {
+        "success": True,
+        "message": f"Sync triggered for {source or 'all sources'}",
+        "result": result
+    }
+
+@app.get("/api/fx/scheduler/status")
+async def api_scheduler_status(user=Depends(get_current_user)):
+    """API: Статус планировщика"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    scheduler = await get_fx_scheduler()
+    status = scheduler.get_status()
+    
+    return status
+
+@app.get("/api/fx/sources")
+async def api_get_sources(user=Depends(get_current_user)):
+    """API: Получить список источников данных"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, code, name, enabled, created_at
+            FROM fx_source
+            ORDER BY code
+        """)
+        
+        return [
+            {
+                "id": r['id'],
+                "code": r['code'],
+                "name": r['name'],
+                "enabled": r['enabled'],
+                "created_at": r['created_at'].isoformat() if r['created_at'] else None
+            }
+            for r in rows
+        ]
+
+@app.put("/api/fx/sources/{code}")
+async def api_update_source(code: str, request: Request, user=Depends(get_current_user)):
+    """API: Включить/выключить источник"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    data = await request.json()
+    enabled = data.get('enabled', True)
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE fx_source 
+            SET enabled = $1, updated_at = NOW()
+            WHERE code = $2 AND deleted_at IS NULL
+        """, enabled, code)
+    
+    return {"success": True, "code": code, "enabled": enabled}
+
+@app.get("/api/fx/logs")
+async def api_get_sync_logs(limit: int = 20, user=Depends(get_current_user)):
+    """API: Получить логи синхронизации"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                sl.id,
+                sl.source_id,
+                fs.code as source_code,
+                fs.name as source_name,
+                sl.started_at,
+                sl.finished_at,
+                sl.status,
+                sl.pairs_processed,
+                sl.pairs_succeeded,
+                sl.pairs_failed,
+                sl.duration_ms,
+                sl.error_message
+            FROM fx_sync_log sl
+            JOIN fx_source fs ON sl.source_id = fs.id
+            ORDER BY sl.started_at DESC
+            LIMIT $1
+        """, limit)
+        
+        return [
+            {
+                "id": r['id'],
+                "source_code": r['source_code'],
+                "source_name": r['source_name'],
+                "started_at": r['started_at'].isoformat() if r['started_at'] else None,
+                "finished_at": r['finished_at'].isoformat() if r['finished_at'] else None,
+                "status": r['status'],
+                "pairs_processed": r['pairs_processed'],
+                "pairs_succeeded": r['pairs_succeeded'],
+                "pairs_failed": r['pairs_failed'],
+                "duration_ms": r['duration_ms'],
+                "error_message": r['error_message']
+            }
+            for r in rows
+        ]
+
+@app.get("/api/fx/markup-rules")
+async def api_get_markup_rules(user=Depends(get_current_user)):
+    """API: Получить правила наценок"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                id, level, source_id, source_pair_id,
+                percent, fixed, enabled, description,
+                rounding_mode, round_to,
+                valid_from, valid_to, created_at
+            FROM fx_markup_rule
+            WHERE deleted_at IS NULL
+            ORDER BY 
+                CASE level
+                    WHEN 'pair' THEN 1
+                    WHEN 'source' THEN 2
+                    WHEN 'global' THEN 3
+                END,
+                percent DESC
+        """)
+        
+        return [
+            {
+                "id": r['id'],
+                "level": r['level'],
+                "source_id": r['source_id'],
+                "source_pair_id": r['source_pair_id'],
+                "percent": float(r['percent']) if r['percent'] else 0,
+                "fixed": float(r['fixed']) if r['fixed'] else 0,
+                "enabled": r['enabled'],
+                "description": r['description'],
+                "rounding_mode": r['rounding_mode'],
+                "round_to": r['round_to'],
+                "valid_from": r['valid_from'].isoformat() if r['valid_from'] else None,
+                "valid_to": r['valid_to'].isoformat() if r['valid_to'] else None,
+                "created_at": r['created_at'].isoformat() if r['created_at'] else None
+            }
+            for r in rows
+        ]
+
+
+# ============================================================================
+# CITY RATES API - Упрощенная логика Rapira с наценками по городам
+# ============================================================================
+
+from src.services.rapira_simple import (
+    get_city_rate, 
+    get_rapira_simple_client, 
+    CITIES
+)
+
+# Legacy /admin/city-rates page removed - use /admin/rates-management instead
+
+@app.get("/api/city-rate/{city}")
+async def api_get_city_rate(
+    city: str,
+    symbol: str,
+    operation: str = "buy",
+    user=Depends(get_current_user)
+):
+    """
+    API: Получить курс для города
+    
+    city: moscow, rostov, nizhniy_novgorod, spb, etc.
+    symbol: USDT/RUB, BTC/USDT, etc. (query parameter)
+    operation: buy (клиент покупает) или sell (клиент продает)
+    """
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    rate = await get_city_rate(symbol, city, operation)
+    
+    if not rate:
+        raise HTTPException(status_code=404, detail="Rate not found")
+    
+    return rate
+
+@app.get("/api/city-rates/all")
+async def api_get_all_city_rates(
+    symbol: str,
+    operation: str = "buy",
+    user=Depends(get_current_user)
+):
+    """API: Получить курсы для всех городов (оптимизированная версия)"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Получаем базовый курс из Rapira один раз
+    client = await get_rapira_simple_client()
+    base_data = await client.get_base_rate(symbol)
+    
+    if not base_data or not (base_data.get('best_ask') or base_data.get('best_bid')):
+        return {
+            "success": False,
+            "error": "No base rate available",
+            "symbol": symbol,
+            "rates": {}
+        }
+    
+    # Выбираем базовую цену
+    base_rate = base_data['best_ask'] if operation == "buy" else base_data['best_bid']
+    if not base_rate:
+        return {
+            "success": False,
+            "error": "No rate for operation",
+            "symbol": symbol,
+            "rates": {}
+        }
+    
+    # Получаем все города и их наценки одним запросом
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        cities_data = await conn.fetch("""
+            SELECT 
+                c.code,
+                c.name,
+                COALESCE(cpm.markup_percent, c.markup_percent) as markup_percent,
+                COALESCE(cpm.markup_fixed, c.markup_fixed) as markup_fixed
+            FROM cities c
+            LEFT JOIN city_pair_markups cpm ON cpm.city_id = c.id 
+                AND cpm.pair_symbol = $1 
+                AND cpm.enabled = true
+            WHERE c.enabled = true
+            ORDER BY c.sort_order, c.name
+        """, symbol)
+    
+    results = {}
+    
+    for city in cities_data:
+        markup_percent = float(city['markup_percent'])
+        markup_fixed = float(city['markup_fixed'])
+        
+        # Применяем наценку
+        from decimal import Decimal
+        final_rate = float(base_rate) * (1 + markup_percent / 100) + markup_fixed
+        final_rate = round(final_rate, 2)
+        
+        results[city['code']] = {
+            'symbol': symbol,
+            'city': city['code'],
+            'city_name': city['name'],
+            'best_source': 'rapira',
+            'base_rate': float(base_rate),
+            'final_rate': final_rate,
+            'markup_percent': markup_percent,
+            'markup_fixed': markup_fixed,
+            'operation': operation,
+            'rapira_rate': float(base_rate),
+            'grinex_rate': None,
+            'timestamp': base_data['timestamp'].isoformat() if hasattr(base_data['timestamp'], 'isoformat') else str(base_data['timestamp'])
+        }
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "operation": operation,
+        "rates": results,
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.post("/api/city-rates/update-markup")
+async def api_update_city_markup(
+    request: Request,
+    city: str = Form(...),
+    percent: float = Form(...),
+    user=Depends(get_current_user)
+):
+    """API: Обновить наценку для города"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        # Обновляем наценку
+        await conn.execute("""
+            UPDATE fx_markup_rule
+            SET percent = $1, updated_at = NOW()
+            WHERE description ILIKE $2
+                AND deleted_at IS NULL
+        """, percent, f"%город: {city}%")
+    
+    return {"success": True, "city": city, "percent": percent}
+
+@app.get("/api/rapira/base-rate")
+async def api_rapira_base_rate(
+    symbol: str,
+    user=Depends(get_current_user)
+):
+    """API: Получить базовый курс из Rapira (московский)"""
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     try:
-        from src.services.rapira import get_rapira_provider
+        client = await get_rapira_simple_client()
+        rate = await client.get_base_rate(symbol)
         
-        provider = await get_rapira_provider()
-        rates = await provider.get_rates()
+        if not rate:
+            raise HTTPException(status_code=503, detail="Rapira API unavailable")
         
-        if rates:
+        return {
+            "symbol": rate['symbol'],
+            "best_ask": float(rate['best_ask']) if rate['best_ask'] else None,
+            "best_bid": float(rate['best_bid']) if rate['best_bid'] else None,
+            "timestamp": rate['timestamp'].isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get base rate: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Тестовый публичный эндпоинт (без аутентификации)
+@app.get("/api/test/rapira-base-rate")
+async def test_rapira_base_rate(symbol: str = "USDT/RUB"):
+    """Тестовый эндпоинт для проверки Rapira API (без аутентификации)"""
+    try:
+        client = await get_rapira_simple_client()
+        rate = await client.get_base_rate(symbol)
+        
+        if not rate:
+            return {"error": "Rapira API unavailable", "symbol": symbol}
+        
+        return {
+            "success": True,
+            "symbol": rate['symbol'],
+            "best_ask": float(rate['best_ask']) if rate['best_ask'] else None,
+            "best_bid": float(rate['best_bid']) if rate['best_bid'] else None,
+            "timestamp": rate['timestamp'].isoformat()
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "symbol": symbol}
+
+
+# ============================================================================
+# CITIES MANAGEMENT API - Управление городами
+# ============================================================================
+
+@app.get("/api/cities")
+async def api_get_cities(user=Depends(get_current_user)):
+    """API: Получить список городов"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, code, name, markup_percent, markup_fixed, enabled, sort_order
+            FROM cities
+            ORDER BY sort_order, name
+        """)
+        
+        return [
+            {
+                "id": r['id'],
+                "code": r['code'],
+                "name": r['name'],
+                "markup_percent": float(r['markup_percent']),
+                "markup_fixed": float(r['markup_fixed']),
+                "enabled": r['enabled'],
+                "sort_order": r['sort_order']
+            }
+            for r in rows
+        ]
+
+@app.post("/api/cities")
+async def api_create_city(
+    request: Request,
+    user=Depends(get_current_user)
+):
+    """API: Создать новый город"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    data = await request.json()
+    code = data.get('code')
+    name = data.get('name')
+    markup_percent = float(data.get('markup_percent', 0))
+    markup_fixed = float(data.get('markup_fixed', 0))
+    enabled = data.get('enabled', True)
+    
+    if not code or not name:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Code and name are required")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                INSERT INTO cities (code, name, markup_percent, markup_fixed, enabled)
+                VALUES ($1, $2, $3, $4, $5)
+            """, code, name, markup_percent, markup_fixed, enabled)
+            
+            return {"success": True, "code": code, "name": name}
+        except Exception as e:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail=f"Error creating city: {str(e)}")
+
+@app.put("/api/cities/{city_id}")
+async def api_update_city(
+    city_id: int,
+    request: Request,
+    user=Depends(get_current_user)
+):
+    """API: Обновить город"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    data = await request.json()
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        updates = []
+        values = []
+        idx = 1
+        
+        if 'name' in data:
+            updates.append(f"name = ${idx}")
+            values.append(data['name'])
+            idx += 1
+        
+        if 'markup_percent' in data:
+            updates.append(f"markup_percent = ${idx}")
+            values.append(float(data['markup_percent']))
+            idx += 1
+        
+        if 'markup_fixed' in data:
+            updates.append(f"markup_fixed = ${idx}")
+            values.append(float(data['markup_fixed']))
+            idx += 1
+        
+        if 'enabled' in data:
+            updates.append(f"enabled = ${idx}")
+            values.append(data['enabled'])
+            idx += 1
+        
+        if updates:
+            updates.append(f"updated_at = NOW()")
+            values.append(city_id)
+            
+            query = f"UPDATE cities SET {', '.join(updates)} WHERE id = ${idx}"
+            await conn.execute(query, *values)
+        
+        return {"success": True, "city_id": city_id}
+
+@app.delete("/api/cities/{city_id}")
+async def api_delete_city(
+    city_id: int,
+    user=Depends(get_current_user)
+):
+    """API: Удалить город"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM cities WHERE id = $1", city_id)
+        
+        return {"success": True, "city_id": city_id}
+
+
+# ============================================================================
+# CITY-PAIR MARKUPS API - Наценки для конкретной пары в конкретном городе
+# ============================================================================
+
+@app.get("/api/city-pair-markups")
+async def api_get_city_pair_markups(
+    city_id: Optional[int] = None,
+    pair_symbol: Optional[str] = None,
+    user=Depends(get_current_user)
+):
+    """API: Получить специфичные наценки город+пара"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        query = """
+            SELECT 
+                cpm.id,
+                cpm.city_id,
+                c.code as city_code,
+                c.name as city_name,
+                cpm.pair_symbol,
+                cpm.markup_percent,
+                cpm.markup_fixed,
+                cpm.enabled
+            FROM city_pair_markups cpm
+            JOIN cities c ON c.id = cpm.city_id
+            WHERE 1=1
+        """
+        params = []
+        
+        if city_id:
+            query += f" AND cpm.city_id = ${len(params) + 1}"
+            params.append(city_id)
+        
+        if pair_symbol:
+            query += f" AND cpm.pair_symbol = ${len(params) + 1}"
+            params.append(pair_symbol)
+        
+        query += " ORDER BY c.sort_order, cpm.pair_symbol"
+        
+        rows = await conn.fetch(query, *params)
+        
+        return [
+            {
+                "id": r['id'],
+                "city_id": r['city_id'],
+                "city_code": r['city_code'],
+                "city_name": r['city_name'],
+                "pair_symbol": r['pair_symbol'],
+                "markup_percent": float(r['markup_percent']),
+                "markup_fixed": float(r['markup_fixed']),
+                "enabled": r['enabled']
+            }
+            for r in rows
+        ]
+
+@app.post("/api/city-pair-markups")
+async def api_create_city_pair_markup(
+    request: Request,
+    user=Depends(get_current_user)
+):
+    """API: Создать специфичную наценку для пары в городе"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    data = await request.json()
+    city_id = data.get('city_id')
+    pair_symbol = data.get('pair_symbol')
+    markup_percent = float(data.get('markup_percent', 0))
+    markup_fixed = float(data.get('markup_fixed', 0))
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO city_pair_markups (city_id, pair_symbol, markup_percent, markup_fixed)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (city_id, pair_symbol) 
+            DO UPDATE SET 
+                markup_percent = EXCLUDED.markup_percent,
+                markup_fixed = EXCLUDED.markup_fixed,
+                updated_at = NOW()
+        """, city_id, pair_symbol, markup_percent, markup_fixed)
+        
+        return {"success": True}
+
+@app.delete("/api/city-pair-markups/{markup_id}")
+async def api_delete_city_pair_markup(
+    markup_id: int,
+    user=Depends(get_current_user)
+):
+    """API: Удалить специфичную наценку"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM city_pair_markups WHERE id = $1", markup_id)
+        
+        return {"success": True}
+
+
+# ============================================================================
+# TRADING PAIRS MANAGEMENT API - Управление торговыми парами
+# ============================================================================
+
+@app.post("/api/fx/source-pairs")
+async def api_create_source_pair(
+    request: Request,
+    user=Depends(get_current_user)
+):
+    """API: Добавить торговую пару для источника"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    data = await request.json()
+    source_code = data.get('source_code')
+    source_symbol = data.get('source_symbol')  # Символ в API источника
+    internal_symbol = data.get('internal_symbol')  # Наш внутренний символ
+    enabled = data.get('enabled', True)
+    
+    if not source_code or not source_symbol or not internal_symbol:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="source_code, source_symbol and internal_symbol are required")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        # Получаем ID источника
+        source = await conn.fetchrow("SELECT id FROM fx_source WHERE code = $1", source_code)
+        if not source:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail=f"Source {source_code} not found")
+        
+        try:
+            pair_id = await conn.fetchval("""
+                INSERT INTO fx_source_pair (source_id, source_symbol, internal_symbol, enabled)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id
+            """, source['id'], source_symbol, internal_symbol, enabled)
+            
+            # Также добавляем в trading_pairs если еще нет
+            base, quote = internal_symbol.split('/')
+            await conn.execute("""
+                INSERT INTO trading_pairs (base_currency, quote_currency, base_name, quote_name, is_active)
+                VALUES ($1, $2, $1, $2, $3)
+                ON CONFLICT (base_currency, quote_currency) DO NOTHING
+            """, base, quote, enabled)
+            
             return {
                 "success": True,
-                "message": f"Rates API test successful. Got {len(rates)} rates",
-                "data": rates
+                "pair_id": pair_id,
+                "source_code": source_code,
+                "source_symbol": source_symbol,
+                "internal_symbol": internal_symbol
             }
-        else:
-            return {
-                "success": False,
-                "error": "No rates received from API"
-            }
-            
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Rates API test failed: {str(e)}"
-        }
+        except Exception as e:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail=f"Error creating pair: {str(e)}")
 
-@app.get("/api/rapira/test/health")
-async def test_health_check(user=Depends(get_current_user)):
+@app.get("/api/fx/all-pairs")
+async def api_get_all_pairs(user=Depends(get_current_user)):
+    """API: Получить все торговые пары из всех источников"""
     if not user:
+        from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    try:
-        from src.services.rapira import get_rapira_provider
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                sp.id,
+                sp.source_id,
+                sp.source_symbol,
+                sp.internal_symbol,
+                sp.enabled,
+                s.code as source_code,
+                s.name as source_name,
+                rr.raw_price as last_rate
+            FROM fx_source_pair sp
+            JOIN fx_source s ON sp.source_id = s.id
+            LEFT JOIN fx_raw_rate rr ON rr.source_pair_id = sp.id
+            ORDER BY sp.internal_symbol, s.code
+        """)
         
-        provider = await get_rapira_provider()
-        health = provider.get_health()
-        
-        return {
-            "success": True,
-            "message": "Health check successful",
-            "data": {
-                "latency": health.latency,
-                "http_code": health.http_code,
-                "is_fresh": health.is_fresh,
-                "last_update": health.last_update.isoformat() if health.last_update else None
+        return [
+            {
+                "id": r['id'],
+                "source_id": r['source_id'],
+                "source_code": r['source_code'],
+                "source_name": r['source_name'],
+                "source_symbol": r['source_symbol'],
+                "internal_symbol": r['internal_symbol'],
+                "enabled": r['enabled'],
+                "last_rate": float(r['last_rate']) if r['last_rate'] else None
             }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Health check failed: {str(e)}"
-        }
+            for r in rows
+        ]
 
-@app.get("/api/rapira/test/rate-calculation")
-async def test_rate_calculation(user=Depends(get_current_user)):
+@app.delete("/api/fx/source-pairs/{pair_id}")
+async def api_delete_source_pair(
+    pair_id: int,
+    user=Depends(get_current_user)
+):
+    """API: Удалить торговую пару"""
     if not user:
+        from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    try:
-        from src.services.rates_calculator import get_rates_calculator, OperationType
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM fx_source_pair WHERE id = $1", pair_id)
         
-        calculator = await get_rates_calculator()
-        result = await calculator.calculate_rate("USDT/RUB", OperationType.CASH_IN, location="moscow")
-        
-        return {
-            "success": True,
-            "message": "Rate calculation test successful",
-            "data": {
-                "base_rate": result.base_rate,
-                "final_rate": result.final_rate,
-                "source": result.source
-            }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Rate calculation test failed: {str(e)}"
-        }
-
-@app.get("/api/rapira/test/fallback")
-async def test_fallback_strategy(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        from src.services.rapira import get_rapira_provider
-        
-        provider = await get_rapira_provider()
-        # Тестируем fallback стратегию
-        plate = await provider._get_fallback_plate("USDT/RUB")
-        
-        if plate:
-            return {
-                "success": True,
-                "message": "Fallback strategy test successful",
-                "data": {
-                    "source": "fallback",
-                    "symbol": plate.symbol,
-                    "timestamp": plate.ts
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "error": "Fallback strategy failed - no data available"
-            }
-            
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Fallback strategy test failed: {str(e)}"
-        }
-
-@app.get("/api/rapira/test/cache")
-async def test_cache_system(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        from src.services.rapira import get_rapira_provider
-        
-        provider = await get_rapira_provider()
-        redis = await provider.get_redis()
-        
-        # Тестируем кэш
-        test_key = "test:cache:rapira"
-        test_value = "test_value"
-        
-        await redis.set(test_key, test_value, ex=60)
-        cached_value = await redis.get(test_key)
-        await redis.delete(test_key)
-        
-        if cached_value == test_value:
-            return {
-                "success": True,
-                "message": "Cache system test successful",
-                "data": {
-                    "cache_working": True,
-                    "test_key": test_key,
-                    "test_value": test_value
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "error": "Cache system test failed - data mismatch"
-            }
-            
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Cache system test failed: {str(e)}"
-        }
-
-@app.get("/api/rapira/test/latency")
-async def test_latency(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        import time
-        from src.services.rapira import get_rapira_provider
-        
-        start_time = time.time()
-        provider = await get_rapira_provider()
-        plate = await provider.get_plate_mini("USDT/RUB")
-        end_time = time.time()
-        
-        latency = (end_time - start_time) * 1000  # в миллисекундах
-        
-        return {
-            "success": True,
-            "message": f"Latency test completed in {latency:.2f}ms",
-            "data": {
-                "latency_ms": latency,
-                "data_received": plate is not None
-            }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Latency test failed: {str(e)}"
-        }
-
-@app.get("/api/rapira/test/concurrent")
-async def test_concurrent_requests(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        import asyncio
-        import time
-        from src.services.rapira import get_rapira_provider
-        
-        provider = await get_rapira_provider()
-        
-        async def make_request():
-            return await provider.get_plate_mini("USDT/RUB")
-        
-        start_time = time.time()
-        tasks = [make_request() for _ in range(5)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        end_time = time.time()
-        
-        successful_requests = sum(1 for r in results if not isinstance(r, Exception))
-        total_time = (end_time - start_time) * 1000
-        
-        return {
-            "success": True,
-            "message": f"Concurrent test completed. {successful_requests}/5 requests successful",
-            "data": {
-                "total_time_ms": total_time,
-                "successful_requests": successful_requests,
-                "failed_requests": 5 - successful_requests,
-                "average_time_per_request": total_time / 5
-            }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Concurrent test failed: {str(e)}"
-        }
-
-@app.get("/api/rapira/test/memory")
-async def test_memory_usage(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        import psutil
-        import os
-        
-        process = psutil.Process(os.getpid())
-        memory_info = process.memory_info()
-        
-        return {
-            "success": True,
-            "message": "Memory usage test completed",
-            "data": {
-                "rss_mb": memory_info.rss / 1024 / 1024,
-                "vms_mb": memory_info.vms / 1024 / 1024,
-                "percent": process.memory_percent()
-            }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Memory test failed: {str(e)}"
-        }
+        return {"success": True, "pair_id": pair_id}

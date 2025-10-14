@@ -50,6 +50,22 @@
         </a>
     </div>
 
+    <!-- Главная кнопка управления курсами -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                <div class="card-body text-center text-white p-4">
+                    <i class="bi bi-currency-exchange" style="font-size: 3rem;"></i>
+                    <h3 class="mt-3 mb-2">Управление курсами</h3>
+                    <p class="mb-3">Единая панель для управления курсами валют, городскими наценками и источниками данных</p>
+                    <a href="/admin/rates-management" class="btn btn-light btn-lg">
+                        <i class="bi bi-sliders"></i> Открыть панель управления
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Quick Stats -->
     <div class="row quick-stats">
         <div class="col-md-3">
@@ -88,16 +104,9 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
-                <div class="card-body text-center">
-                    <i class="bi bi-graph-up-arrow fs-1"></i>
-                    <h5 class="card-title">Rapira API</h5>
-                    <a href="/rapira" class="btn btn-light btn-sm">Мониторинг</a>
-                </div>
-            </div>
-        </div>
     </div>
+
+    <!-- Старые карточки интеграций удалены - используйте универсальную панель "Управление курсами" выше -->
 
     <div class="row">
         <div class="col-md-6">
@@ -114,13 +123,7 @@
                                 <small class="text-muted">Управление валютными парами</small>
                             </div>
                         </a>
-                        <a href="/admin/rates" class="list-group-item list-group-item-action d-flex align-items-center">
-                            <i class="bi bi-graph-up me-3"></i>
-                            <div>
-                                <h6 class="mb-1">Курсы валют</h6>
-                                <small class="text-muted">Настройка курсов и комиссий</small>
-                            </div>
-                        </a>
+                        <!-- Курсы валют удалены - используйте "Управление курсами" выше -->
                         <a href="/admin/payout-methods" class="list-group-item list-group-item-action d-flex align-items-center">
                             <i class="bi bi-credit-card me-3"></i>
                             <div>
@@ -174,13 +177,7 @@
                                 <small class="text-muted">Системные уведомления</small>
                             </div>
                         </a>
-                        <a href="/rapira" class="list-group-item list-group-item-action d-flex align-items-center">
-                            <i class="bi bi-graph-up-arrow me-3"></i>
-                            <div>
-                                <h6 class="mb-1">Rapira API</h6>
-                                <small class="text-muted">Мониторинг и настройка интеграции</small>
-                            </div>
-                        </a>
+                        <!-- Старые ссылки FX удалены - используйте "Управление курсами" выше -->
                     </div>
                 </div>
             </div>
