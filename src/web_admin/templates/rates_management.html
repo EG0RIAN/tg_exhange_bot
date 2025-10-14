@@ -1016,11 +1016,13 @@
                 
                 console.log('Response status:', response.status);
                 
+                // Читаем response один раз
+                const contentType = response.headers.get('content-type');
                 let result;
-                try {
+                
+                if (contentType && contentType.includes('application/json')) {
                     result = await response.json();
-                } catch (jsonError) {
-                    // Если не JSON - получаем текст ошибки
+                } else {
                     const text = await response.text();
                     alert(`❌ Ошибка сервера (${response.status}): ${text.substring(0, 200)}`);
                     return;
