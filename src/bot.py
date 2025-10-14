@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 import os
 from src.handlers.menu import router as menu_router
 from src.handlers.fsm_request import router as fsm_request_router
+from src.handlers.buy_usdt import router as buy_usdt_router
+from src.handlers.sell_usdt import router as sell_usdt_router
+from src.handlers.pay_invoice import router as pay_invoice_router
 from src.handlers.faq import router as faq_router
 from src.handlers.livechat import router as livechat_router
 from src.handlers.admin import router as admin_router
@@ -38,6 +41,12 @@ async def main():
     await start_fx_scheduler()
     
     # FSM роутеры должны быть первыми (приоритет)
+    # Новые пути создания заявок
+    dp.include_router(buy_usdt_router)
+    dp.include_router(sell_usdt_router)
+    dp.include_router(pay_invoice_router)
+    
+    # Старый FSM (legacy)
     dp.include_router(fsm_request_router)
     
     # Обычные роутеры

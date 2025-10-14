@@ -1,11 +1,15 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+# ============================================================================
+# НОВОЕ ГЛАВНОЕ МЕНЮ (3 основных действия)
+# ============================================================================
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
+        [KeyboardButton(text="💵 Купить USDT")],
+        [KeyboardButton(text="💸 Продать USDT")],
+        [KeyboardButton(text="📄 Оплатить инвойс")],
         [KeyboardButton(text="📖 FAQ"), KeyboardButton(text="💱 Курсы")],
-        [KeyboardButton(text="✉️ Оставить заявку")],
-        [KeyboardButton(text="👨‍💼 Перейти к менеджеру")],
-        [KeyboardButton(text="⚙️ Настройки")],
+        [KeyboardButton(text="👨‍💼 Связаться с менеджером")],
     ],
     resize_keyboard=True
 )
@@ -13,6 +17,163 @@ main_menu = ReplyKeyboardMarkup(
 def add_back_button(keyboard: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
     keyboard.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
     return keyboard
+
+def add_manager_button(keyboard: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
+    """Добавляет кнопку 'Связаться с менеджером' на каждом этапе"""
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="👨‍💼 Связаться с менеджером", callback_data="contact_manager")
+    ])
+    return keyboard
+
+# ============================================================================
+# КЛАВИАТУРЫ ДЛЯ НОВОГО FLOW
+# ============================================================================
+
+def get_countries_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора страны"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Россия", callback_data="country:russia")],
+            [InlineKeyboardButton(text="🇰🇿 Казахстан", callback_data="country:kazakhstan")],
+            [InlineKeyboardButton(text="🇺🇿 Узбекистан", callback_data="country:uzbekistan")],
+            [InlineKeyboardButton(text="🇦🇿 Азербайджан", callback_data="country:azerbaijan")],
+            [InlineKeyboardButton(text="🇬🇪 Грузия", callback_data="country:georgia")],
+            [InlineKeyboardButton(text="🇹🇷 Турция", callback_data="country:turkey")],
+            [InlineKeyboardButton(text="🇦🇪 ОАЭ", callback_data="country:uae")],
+        ]
+    )
+    return add_manager_button(kb)
+
+async def get_priority_cities_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора города с приоритетными городами + кнопка 'Другое'"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏛 Москва", callback_data="city:moscow")],
+            [InlineKeyboardButton(text="🌉 Санкт-Петербург", callback_data="city:spb")],
+            [InlineKeyboardButton(text="🌴 Краснодар", callback_data="city:krasnodar")],
+            [InlineKeyboardButton(text="🏭 Ростов-на-Дону", callback_data="city:rostov")],
+            [InlineKeyboardButton(text="🌍 Другое", callback_data="city:other")],
+        ]
+    )
+    return add_manager_button(kb)
+
+async def get_all_cities_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура со всеми остальными городами (кроме приоритетных)"""
+    from src.db import get_pg_pool
+    
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        cities = await conn.fetch("""
+            SELECT code, name FROM cities 
+            WHERE enabled = true 
+            AND code NOT IN ('moscow', 'spb', 'krasnodar', 'rostov')
+            ORDER BY name
+        """)
+    
+    buttons = []
+    for city in cities:
+        buttons.append([InlineKeyboardButton(
+            text=city['name'], 
+            callback_data=f"city:{city['code']}"
+        )])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_priority_cities")])
+    return add_manager_button(kb)
+
+def get_currencies_keyboard(country: str = "russia") -> InlineKeyboardMarkup:
+    """Клавиатура выбора валюты в зависимости от страны"""
+    currencies = {
+        "russia": [
+            ("₽ RUB (Рубль)", "RUB"),
+            ("$ USD (Доллар)", "USD"),
+            ("€ EUR (Евро)", "EUR"),
+        ],
+        "kazakhstan": [
+            ("₸ KZT (Тенге)", "KZT"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+        "uzbekistan": [
+            ("UZS (Сум)", "UZS"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+        "azerbaijan": [
+            ("₼ AZN (Манат)", "AZN"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+        "georgia": [
+            ("₾ GEL (Лари)", "GEL"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+        "turkey": [
+            ("₺ TRY (Лира)", "TRY"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+        "uae": [
+            ("د.إ AED (Дирхам)", "AED"),
+            ("$ USD (Доллар)", "USD"),
+        ],
+    }
+    
+    country_currencies = currencies.get(country, currencies["russia"])
+    
+    buttons = [[InlineKeyboardButton(text=name, callback_data=f"currency:{code}")] 
+               for name, code in country_currencies]
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
+    return add_manager_button(kb)
+
+def get_amount_keyboard_v2():
+    """Клавиатура выбора суммы (новая версия)"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="$100", callback_data="amount:100"),
+             InlineKeyboardButton(text="$250", callback_data="amount:250")],
+            [InlineKeyboardButton(text="$500", callback_data="amount:500"),
+             InlineKeyboardButton(text="$1000", callback_data="amount:1000")],
+            [InlineKeyboardButton(text="$5000", callback_data="amount:5000"),
+             InlineKeyboardButton(text="$10000", callback_data="amount:10000")],
+            [InlineKeyboardButton(text="📝 Своя сумма", callback_data="amount:custom")],
+        ]
+    )
+    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
+    return add_manager_button(kb)
+
+def get_payment_methods_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора способа оплаты (для инвойса)"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💵 Наличные", callback_data="payment:cash")],
+            [InlineKeyboardButton(text="💎 USDT", callback_data="payment:usdt")],
+        ]
+    )
+    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
+    return add_manager_button(kb)
+
+def get_invoice_purposes_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора цели инвойса"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏢 Оплата услуг", callback_data="purpose:services")],
+            [InlineKeyboardButton(text="🏬 Покупка товаров", callback_data="purpose:goods")],
+            [InlineKeyboardButton(text="📦 Доставка/логистика", callback_data="purpose:delivery")],
+            [InlineKeyboardButton(text="💼 Прочее", callback_data="purpose:other")],
+        ]
+    )
+    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
+    return add_manager_button(kb)
+
+def get_confirm_keyboard_v2():
+    """Клавиатура подтверждения заявки"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm:yes")],
+            [InlineKeyboardButton(text="✏️ Изменить", callback_data="confirm:edit")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="confirm:cancel")],
+        ]
+    )
+    return add_manager_button(kb)
 
 def get_pairs_keyboard(pairs: list[str]) -> InlineKeyboardMarkup:
     buttons = [InlineKeyboardButton(text=pair, callback_data=f"pair:{pair}") for pair in pairs]
