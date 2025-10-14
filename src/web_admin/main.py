@@ -1017,8 +1017,8 @@ async def api_trigger_sync(
     
     scheduler = await get_fx_scheduler()
     result = await scheduler.trigger_sync(source)
-        
-        return {
+    
+    return {
         "success": True,
         "message": f"Sync triggered for {source or 'all sources'}",
         "result": result
@@ -1425,7 +1425,7 @@ async def api_create_city(
             """, code, name, markup_percent, markup_fixed, enabled)
             
             return {"success": True, "code": code, "name": name}
-    except Exception as e:
+        except Exception as e:
             from fastapi import HTTPException
             raise HTTPException(status_code=400, detail=f"Error creating city: {str(e)}")
 
@@ -1649,15 +1649,15 @@ async def api_create_source_pair(
                 ON CONFLICT (base_currency, quote_currency) DO NOTHING
             """, base, quote, enabled)
         
-        return {
-            "success": True,
+            
+            return {
+                "success": True,
                 "pair_id": pair_id,
                 "source_code": source_code,
                 "source_symbol": source_symbol,
                 "internal_symbol": internal_symbol
             }
-    except Exception as e:
-            from fastapi import HTTPException
+        except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error creating pair: {str(e)}")
 
 @app.get("/api/fx/all-pairs")
