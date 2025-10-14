@@ -37,11 +37,16 @@ async def main():
     # Запускаем планировщик курсов FX
     await start_fx_scheduler()
     
-    dp.include_router(menu_router)
+    # FSM роутеры должны быть первыми (приоритет)
     dp.include_router(fsm_request_router)
+    
+    # Обычные роутеры
+    dp.include_router(menu_router)
     dp.include_router(faq_router)
     dp.include_router(settings_router)
     dp.include_router(livechat_router)
+    
+    # Админ роутеры
     dp.include_router(admin_router)
     dp.include_router(admin_content_router)
     dp.include_router(admin_grinex_router)

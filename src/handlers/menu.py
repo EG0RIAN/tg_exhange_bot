@@ -25,7 +25,13 @@ async def menu_rates(message: Message):
     await message.answer("🌍 Выберите ваш город для просмотра курсов:", reply_markup=await get_cities_keyboard())
 
 @router.callback_query(F.data.startswith("city:"))
-async def show_city_rates(callback: CallbackQuery):
+async def show_city_rates(callback: CallbackQuery, state: FSMContext):
+    # Проверяем - если пользователь в FSM создания заявки, не обрабатываем здесь
+    current_state = await state.get_state()
+    if current_state is not None:
+        # Пользователь в процессе создания заявки, пропускаем
+        return
+    
     city_code = callback.data.split(":", 1)[1]
     
     # Получаем название города из БД

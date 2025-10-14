@@ -165,15 +165,6 @@ async def format_rates_for_display(city: str, city_name: str) -> str:
         else:
             text += f"  Продажа: _недоступен_\n"
         
-        # Показываем источник лучшего курса
-        source = buy_rate.get('source', 'unknown').upper()
-        text += f"  _Источник: {source}_\n"
-        
-        # Показываем наценку если она есть
-        markup = buy_rate.get('markup', 0)
-        if markup > 0:
-            text += f"  _Наценка города: +{markup}%_\n"
-        
         text += "\n"
     
     text += f"_Обновлено: {datetime.now().strftime('%H:%M')}_\n"
