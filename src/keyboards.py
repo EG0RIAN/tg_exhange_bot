@@ -86,7 +86,6 @@ def get_currencies_keyboard() -> InlineKeyboardMarkup:
     currencies = [
         ("₽ RUB (Рубль)", "RUB"),
         ("$ USD (Доллар)", "USD"),
-        ("€ EUR (Евро)", "EUR"),
     ]
     
     buttons = [[InlineKeyboardButton(text=name, callback_data=f"currency:{code}")] 

@@ -41,10 +41,11 @@
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Тип</th>
                             <th>Пользователь</th>
-                            <th>Пара</th>
+                            <th>Город</th>
+                            <th>Валюта</th>
                             <th>Сумма</th>
-                            <th>Способ выплаты</th>
                             <th>Статус</th>
                             <th>Дата</th>
                             <th>Действия</th>
@@ -55,20 +56,39 @@
                         <tr>
                             <td>{{ order.id }}</td>
                             <td>
+                                {% if order.order_type == 'buy_usdt' %}
+                                    <span class="badge bg-success">💵 Купить</span>
+                                {% elif order.order_type == 'sell_usdt' %}
+                                    <span class="badge bg-info">💸 Продать</span>
+                                {% elif order.order_type == 'pay_invoice' %}
+                                    <span class="badge bg-warning">📄 Инвойс</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ order.pair }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 {% if order.first_name %}
                                     {{ order.first_name }}
                                     {% if order.username %}
                                         <br><small class="text-muted">@{{ order.username }}</small>
                                     {% endif %}
                                 {% else %}
-                                    ID: {{ order.tg_id }}
+                                    {% if order.username %}
+                                        @{{ order.username }}
+                                    {% else %}
+                                        ID: {{ order.tg_id or order.user_id }}
+                                    {% endif %}
                                 {% endif %}
                             </td>
+                            <td>{{ order.city or '-' }}</td>
                             <td>
-                                <span class="badge bg-primary">{{ order.pair }}</span>
+                                {% if order.currency %}
+                                    <span class="badge bg-primary">{{ order.currency }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             <td>{{ order.amount }}</td>
-                            <td>{{ order.payout_method }}</td>
                             <td>
                                 {% if order.status == 'new' %}
                                     <span class="badge bg-warning">Новая</span>

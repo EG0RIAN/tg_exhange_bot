@@ -220,7 +220,9 @@ async def enter_username(message: Message, state: FSMContext):
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:yes")
 async def confirm_order(callback: CallbackQuery, state: FSMContext):
     """Подтверждение заявки"""
+    logger.info(f"Confirming buy_usdt order from user {callback.from_user.id}")
     data = await state.get_data()
+    logger.info(f"Order data: {data}")
     
     # Сохраняем заявку в БД
     pool = await get_pg_pool()
@@ -298,4 +300,19 @@ async def contact_manager(callback: CallbackQuery, state: FSMContext):
         f"Вы можете написать менеджеру: {MANAGER_USERNAME}",
         show_alert=True
     )
+
+
+# ============================================================================
+# Отладочный обработчик (ловит необработанные callback)
+# ============================================================================
+
+@router.callback_query(BuyUSDTStates())
+async def debug_unhandled_callback(callback: CallbackQuery, state: FSMContext):
+    """Отладка: ловит необработанные callback_query в процессе покупки"""
+    current_state = await state.get_state()
+    logger.warning(
+        f"Unhandled callback in BuyUSDT flow: "
+        f"data={callback.data}, state={current_state}, user={callback.from_user.id}"
+    )
+    await callback.answer("⚠️ Неизвестная команда", show_alert=True)
 

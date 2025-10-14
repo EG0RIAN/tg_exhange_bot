@@ -266,3 +266,14 @@ async def contact_manager(callback: CallbackQuery, state: FSMContext):
         show_alert=True
     )
 
+
+@router.callback_query(SellUSDTStates())
+async def debug_unhandled_callback(callback: CallbackQuery, state: FSMContext):
+    """Отладка: ловит необработанные callback_query в процессе продажи"""
+    current_state = await state.get_state()
+    logger.warning(
+        f"Unhandled callback in SellUSDT flow: "
+        f"data={callback.data}, state={current_state}, user={callback.from_user.id}"
+    )
+    await callback.answer("⚠️ Неизвестная команда", show_alert=True)
+

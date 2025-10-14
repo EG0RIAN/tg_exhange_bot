@@ -41,11 +41,48 @@
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>ID заявки:</strong> {{ order.id }}</p>
+                            
+                            {% if order.order_type %}
+                            <p><strong>Тип операции:</strong> 
+                                {% if order.order_type == 'buy_usdt' %}
+                                    <span class="badge bg-success">💵 Купить USDT</span>
+                                {% elif order.order_type == 'sell_usdt' %}
+                                    <span class="badge bg-info">💸 Продать USDT</span>
+                                {% elif order.order_type == 'pay_invoice' %}
+                                    <span class="badge bg-warning">📄 Оплатить инвойс</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ order.order_type }}</span>
+                                {% endif %}
+                            </p>
+                            {% endif %}
+                            
+                            {% if order.city %}
+                            <p><strong>Город:</strong> {{ order.city }}</p>
+                            {% endif %}
+                            
+                            {% if order.currency %}
+                            <p><strong>Валюта выдачи:</strong> <span class="badge bg-primary">{{ order.currency }}</span></p>
+                            {% endif %}
+                            
+                            {% if order.pair %}
                             <p><strong>Валютная пара:</strong> 
                                 <span class="badge bg-primary">{{ order.pair }}</span>
                             </p>
+                            {% endif %}
+                            
                             <p><strong>Сумма:</strong> {{ order.amount }}</p>
+                            
+                            {% if order.payout_method %}
                             <p><strong>Способ выплаты:</strong> {{ order.payout_method }}</p>
+                            {% endif %}
+                            
+                            {% if order.payment_method %}
+                            <p><strong>Способ оплаты:</strong> {{ order.payment_method }}</p>
+                            {% endif %}
+                            
+                            {% if order.purpose %}
+                            <p><strong>Цель:</strong> {{ order.purpose }}</p>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <p><strong>Статус:</strong> 
@@ -62,7 +99,20 @@
                                 {% endif %}
                             </p>
                             <p><strong>Дата создания:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</p>
+                            
+                            {% if order.username %}
+                            <p><strong>Username:</strong> @{{ order.username }}</p>
+                            {% endif %}
+                            
+                            {% if order.contact %}
                             <p><strong>Контакт:</strong> {{ order.contact }}</p>
+                            {% endif %}
+                            
+                            {% if order.invoice_file_id %}
+                            <p><strong>Инвойс:</strong> 
+                                <span class="badge bg-info">📎 Прикреплен ({{ order.invoice_file_type }})</span>
+                            </p>
+                            {% endif %}
                         </div>
                     </div>
 
