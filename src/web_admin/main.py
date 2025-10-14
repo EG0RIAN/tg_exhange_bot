@@ -1635,14 +1635,20 @@ async def api_create_source_pair(
             raise HTTPException(status_code=404, detail=f"Source {source_code} not found")
         
         try:
+            # Парсим internal_symbol на base и quote
+            if '/' not in internal_symbol:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail="internal_symbol must be in format BASE/QUOTE (e.g. ETH/USDT)")
+            
+            base, quote = internal_symbol.split('/')
+            
             pair_id = await conn.fetchval("""
-                INSERT INTO fx_source_pair (source_id, source_symbol, internal_symbol, enabled)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO fx_source_pair (source_id, source_symbol, base_currency, quote_currency, internal_symbol, enabled)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING id
-            """, source['id'], source_symbol, internal_symbol, enabled)
+            """, source['id'], source_symbol, base, quote, internal_symbol, enabled)
             
             # Также добавляем в trading_pairs если еще нет
-            base, quote = internal_symbol.split('/')
             await conn.execute("""
                 INSERT INTO trading_pairs (base_currency, quote_currency, base_name, quote_name, is_active)
                 VALUES ($1, $2, $1, $2, $3)
