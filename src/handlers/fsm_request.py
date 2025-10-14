@@ -94,10 +94,7 @@ async def choose_pair(callback: CallbackQuery, state: FSMContext):
         rate_text = (
             f"✅ Город: {city_name}\n"
             f"✅ Пара: {pair}\n\n"
-            f"💰 **Ваш курс: {rate_info['rate']:.2f} ₽**\n"
-            f"└ Базовый: {rate_info['base_rate']:.2f} ₽\n"
-            f"└ Наценка: +{rate_info['markup']}%\n"
-            f"└ Источник: {rate_info['source'].upper()}\n\n"
+            f"💰 **Ваш курс: {rate_info['rate']:.2f} ₽**\n\n"
             f"{PROGRESS[1]}\nВведите сумму:"
         )
     else:
@@ -168,8 +165,7 @@ async def enter_contact(message: Message, state: FSMContext):
         f"💰 Курс: {rate:.2f} ₽\n"
         f"📊 Сумма: {data['amount']}\n"
         f"💳 Выплата: {escaped_payout}\n"
-        f"📞 Контакт: {escaped_contact}\n"
-        f"🔹 Источник: {rate_source.upper()}"
+        f"📞 Контакт: {escaped_contact}"
     )
     
     await message.answer(f"Проверьте заявку:\n\n{summary}", reply_markup=get_confirm_keyboard(), parse_mode="Markdown")
