@@ -24,8 +24,8 @@ import logging
 router = Router()
 logger = logging.getLogger(__name__)
 
-# Менеджер по умолчанию (можно хранить в БД или конфиге)
-MANAGER_USERNAME = "@manager"  # Замените на реального менеджера
+# Менеджер по умолчанию
+MANAGER_USERNAME = "@btc_otc"
 
 
 # ============================================================================

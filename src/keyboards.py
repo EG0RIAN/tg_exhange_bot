@@ -45,14 +45,14 @@ def get_countries_keyboard() -> InlineKeyboardMarkup:
     return add_manager_button(kb)
 
 async def get_priority_cities_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора города с приоритетными городами + кнопка 'Другое'"""
+    """Клавиатура выбора города с приоритетными городами + кнопка 'Остальные города'"""
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🏛 Москва", callback_data="city:moscow")],
             [InlineKeyboardButton(text="🌉 Санкт-Петербург", callback_data="city:spb")],
             [InlineKeyboardButton(text="🌴 Краснодар", callback_data="city:krasnodar")],
             [InlineKeyboardButton(text="🏭 Ростов-на-Дону", callback_data="city:rostov")],
-            [InlineKeyboardButton(text="🌍 Другое", callback_data="city:other")],
+            [InlineKeyboardButton(text="🌍 Остальные города", callback_data="city:other")],
         ]
     )
     return add_manager_button(kb)

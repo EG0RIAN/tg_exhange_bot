@@ -23,7 +23,7 @@ import logging
 router = Router()
 logger = logging.getLogger(__name__)
 
-MANAGER_USERNAME = "@manager"
+MANAGER_USERNAME = "@btc_otc"
 
 
 @router.message(F.text == "💸 Продать USDT")
