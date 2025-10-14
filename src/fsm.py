@@ -55,5 +55,6 @@ class RequestFSM(StatesGroup):
     ChoosePair = State()
     ChooseAction = State()
     EnterAmount = State()
+    SelectPayout = State()  # Добавлено для совместимости
     EnterContact = State()
     Confirm = State()
