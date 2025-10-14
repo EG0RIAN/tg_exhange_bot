@@ -29,7 +29,7 @@ async def get_available_pairs() -> List[str]:
 
 async def get_client_rates(city: str) -> Dict[str, Dict]:
     """
-    Получает курсы для клиента с учетом его города
+    Получает курсы для клиента с учетом его города (ОПТИМИЗИРОВАННАЯ ВЕРСИЯ)
     
     Args:
         city: Код города (moscow, rostov и т.д.)
@@ -43,37 +43,89 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
             'BTC/USDT': {...}
         }
     """
+    from src.services.rapira_simple import get_rapira_simple_client
+    from decimal import Decimal
+    
+    # Получаем все пары
     pairs = await get_available_pairs()
+    if not pairs:
+        return {}
+    
+    # Получаем курсы для всех пар ИЗ RAPIRA ОДИН РАЗ
+    client = await get_rapira_simple_client()
+    base_rates = await client.get_multiple_rates(pairs)
+    
+    # Получаем наценки города для всех пар ОДНИМ ЗАПРОСОМ
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        # Получаем базовую наценку города
+        city_data = await conn.fetchrow("""
+            SELECT id, name, markup_percent, markup_fixed
+            FROM cities
+            WHERE code = $1 AND enabled = true
+        """, city)
+        
+        if not city_data:
+            logger.warning(f"City {city} not found")
+            return {}
+        
+        # Получаем специфичные наценки для всех пар
+        pair_markups = await conn.fetch("""
+            SELECT pair_symbol, markup_percent, markup_fixed
+            FROM city_pair_markups
+            WHERE city_id = $1 AND enabled = true
+        """, city_data['id'])
+        
+        # Создаем словарь наценок по парам
+        markups_dict = {pm['pair_symbol']: pm for pm in pair_markups}
+    
     result = {}
     
     for pair in pairs:
-        try:
-            # Курс покупки
-            buy_rate = await get_best_city_rate(pair, city, "buy")
-            # Курс продажи
-            sell_rate = await get_best_city_rate(pair, city, "sell")
-            
-            if buy_rate and sell_rate:
-                result[pair] = {
-                    'buy': {
-                        'rate': buy_rate['final_rate'],
-                        'base_rate': buy_rate['base_rate'],
-                        'source': buy_rate['best_source'],
-                        'markup': buy_rate['markup_percent']
-                    },
-                    'sell': {
-                        'rate': sell_rate['final_rate'],
-                        'base_rate': sell_rate['base_rate'],
-                        'source': sell_rate['best_source'],
-                        'markup': sell_rate['markup_percent']
-                    }
-                }
-        except Exception as e:
-            logger.error(f"Failed to get rates for {pair} in city {city}: {e}")
-            result[pair] = {
-                'buy': {'rate': None, 'error': str(e)},
-                'sell': {'rate': None, 'error': str(e)}
+        base_rate_data = base_rates.get(pair)
+        if not base_rate_data:
+            continue
+        
+        # Получаем наценку для этой пары (специфичная или базовая)
+        if pair in markups_dict:
+            markup_percent = float(markups_dict[pair]['markup_percent'])
+            markup_fixed = float(markups_dict[pair]['markup_fixed'])
+        else:
+            markup_percent = float(city_data['markup_percent'])
+            markup_fixed = float(city_data['markup_fixed'])
+        
+        # Курс покупки (ask)
+        if base_rate_data.get('best_ask'):
+            buy_base = float(base_rate_data['best_ask'])
+            buy_final = buy_base * (1 + markup_percent / 100) + markup_fixed
+            buy_final = round(buy_final, 2)
+        else:
+            buy_base = None
+            buy_final = None
+        
+        # Курс продажи (bid)
+        if base_rate_data.get('best_bid'):
+            sell_base = float(base_rate_data['best_bid'])
+            sell_final = sell_base * (1 + markup_percent / 100) + markup_fixed
+            sell_final = round(sell_final, 2)
+        else:
+            sell_base = None
+            sell_final = None
+        
+        result[pair] = {
+            'buy': {
+                'rate': buy_final,
+                'base_rate': buy_base,
+                'source': 'rapira',
+                'markup': markup_percent
+            },
+            'sell': {
+                'rate': sell_final,
+                'base_rate': sell_base,
+                'source': 'rapira',
+                'markup': markup_percent
             }
+        }
     
     return result
 

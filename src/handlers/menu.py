@@ -28,9 +28,11 @@ async def menu_rates(message: Message):
 async def show_city_rates(callback: CallbackQuery):
     city_code = callback.data.split(":", 1)[1]
     
-    # Словарь названий городов
-    from src.services.rapira_simple import CITIES
-    city_name = CITIES.get(city_code, city_code)
+    # Получаем название города из БД
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        city_row = await conn.fetchrow("SELECT name FROM cities WHERE code = $1 AND enabled = true", city_code)
+        city_name = city_row['name'] if city_row else city_code
     
     # Используем унифицированный сервис
     from src.services.client_rates import format_rates_for_display
