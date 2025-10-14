@@ -58,9 +58,9 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
     # Получаем наценки города для всех пар ОДНИМ ЗАПРОСОМ
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
-        # Получаем базовую наценку города
+        # Получаем базовую наценку города (раздельно на buy/sell)
         city_data = await conn.fetchrow("""
-            SELECT id, name, markup_percent, markup_fixed
+            SELECT id, name, markup_buy, markup_sell, markup_fixed
             FROM cities
             WHERE code = $1 AND enabled = true
         """, city)
@@ -71,7 +71,7 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
         
         # Получаем специфичные наценки для всех пар
         pair_markups = await conn.fetch("""
-            SELECT pair_symbol, markup_percent, markup_fixed
+            SELECT pair_symbol, markup_buy, markup_sell, markup_fixed
             FROM city_pair_markups
             WHERE city_id = $1 AND enabled = true
         """, city_data['id'])
@@ -86,27 +86,29 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
         if not base_rate_data:
             continue
         
-        # Получаем наценку для этой пары (специфичная или базовая)
+        # Получаем наценки для этой пары (специфичные или базовые)
         if pair in markups_dict:
-            markup_percent = float(markups_dict[pair]['markup_percent'])
+            markup_buy = float(markups_dict[pair]['markup_buy'])
+            markup_sell = float(markups_dict[pair]['markup_sell'])
             markup_fixed = float(markups_dict[pair]['markup_fixed'])
         else:
-            markup_percent = float(city_data['markup_percent'])
+            markup_buy = float(city_data['markup_buy'])
+            markup_sell = float(city_data['markup_sell'])
             markup_fixed = float(city_data['markup_fixed'])
         
-        # Курс покупки (ask)
+        # Курс покупки (ask) - клиент покупает крипту
         if base_rate_data.get('best_ask'):
             buy_base = float(base_rate_data['best_ask'])
-            buy_final = buy_base * (1 + markup_percent / 100) + markup_fixed
+            buy_final = buy_base * (1 + markup_buy / 100) + markup_fixed
             buy_final = round(buy_final, 2)
         else:
             buy_base = None
             buy_final = None
         
-        # Курс продажи (bid)
+        # Курс продажи (bid) - клиент продает крипту
         if base_rate_data.get('best_bid'):
             sell_base = float(base_rate_data['best_bid'])
-            sell_final = sell_base * (1 + markup_percent / 100) + markup_fixed
+            sell_final = sell_base * (1 + markup_sell / 100) + markup_fixed
             sell_final = round(sell_final, 2)
         else:
             sell_base = None
@@ -117,13 +119,13 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
                 'rate': buy_final,
                 'base_rate': buy_base,
                 'source': 'rapira',
-                'markup': markup_percent
+                'markup': markup_buy
             },
             'sell': {
                 'rate': sell_final,
                 'base_rate': sell_base,
                 'source': 'rapira',
-                'markup': markup_percent
+                'markup': markup_sell
             }
         }
     

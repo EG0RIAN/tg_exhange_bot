@@ -112,20 +112,24 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
         logger.error(f"No rates available for {symbol}")
         return None
     
-    # Применяем наценку города из таблицы cities
+    # Применяем наценку города из таблицы cities (раздельно на buy/sell)
     from src.db import get_pg_pool
     
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
         city_data = await conn.fetchrow("""
-            SELECT markup_percent, markup_fixed
+            SELECT markup_buy, markup_sell, markup_fixed
             FROM cities
             WHERE code = $1 AND enabled = true
             LIMIT 1
         """, city)
         
         if city_data:
-            markup_percent = float(city_data['markup_percent'])
+            # Выбираем наценку в зависимости от операции
+            if operation == "buy":
+                markup_percent = float(city_data['markup_buy'])
+            else:
+                markup_percent = float(city_data['markup_sell'])
             markup_fixed = float(city_data['markup_fixed'])
         else:
             logger.warning(f"City {city} not found in DB, using 0%")

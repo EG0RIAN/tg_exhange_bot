@@ -1377,7 +1377,7 @@ async def api_get_cities(user=Depends(get_current_user)):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
-            SELECT id, code, name, markup_percent, markup_fixed, enabled, sort_order
+            SELECT id, code, name, markup_buy, markup_sell, markup_fixed, enabled, sort_order, preferred_source
             FROM cities
             ORDER BY sort_order, name
         """)
@@ -1387,10 +1387,12 @@ async def api_get_cities(user=Depends(get_current_user)):
                 "id": r['id'],
                 "code": r['code'],
                 "name": r['name'],
-                "markup_percent": float(r['markup_percent']),
+                "markup_buy": float(r['markup_buy']) if r.get('markup_buy') is not None else 0.0,
+                "markup_sell": float(r['markup_sell']) if r.get('markup_sell') is not None else 0.0,
                 "markup_fixed": float(r['markup_fixed']),
                 "enabled": r['enabled'],
-                "sort_order": r['sort_order']
+                "sort_order": r['sort_order'],
+                "preferred_source": r.get('preferred_source')
             }
             for r in rows
         ]
@@ -1408,8 +1410,10 @@ async def api_create_city(
     data = await request.json()
     code = data.get('code')
     name = data.get('name')
-    markup_percent = float(data.get('markup_percent', 0))
+    markup_buy = float(data.get('markup_buy', 0))
+    markup_sell = float(data.get('markup_sell', 0))
     markup_fixed = float(data.get('markup_fixed', 0))
+    preferred_source = data.get('preferred_source')
     enabled = data.get('enabled', True)
     
     if not code or not name:
@@ -1420,9 +1424,9 @@ async def api_create_city(
     async with pool.acquire() as conn:
         try:
             await conn.execute("""
-                INSERT INTO cities (code, name, markup_percent, markup_fixed, enabled)
-                VALUES ($1, $2, $3, $4, $5)
-            """, code, name, markup_percent, markup_fixed, enabled)
+                INSERT INTO cities (code, name, markup_buy, markup_sell, markup_fixed, preferred_source, enabled)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            """, code, name, markup_buy, markup_sell, markup_fixed, preferred_source, enabled)
             
             return {"success": True, "code": code, "name": name}
         except Exception as e:
@@ -1453,14 +1457,24 @@ async def api_update_city(
             values.append(data['name'])
             idx += 1
         
-        if 'markup_percent' in data:
-            updates.append(f"markup_percent = ${idx}")
-            values.append(float(data['markup_percent']))
+        if 'markup_buy' in data:
+            updates.append(f"markup_buy = ${idx}")
+            values.append(float(data['markup_buy']))
+            idx += 1
+        
+        if 'markup_sell' in data:
+            updates.append(f"markup_sell = ${idx}")
+            values.append(float(data['markup_sell']))
             idx += 1
         
         if 'markup_fixed' in data:
             updates.append(f"markup_fixed = ${idx}")
             values.append(float(data['markup_fixed']))
+            idx += 1
+        
+        if 'preferred_source' in data:
+            updates.append(f"preferred_source = ${idx}")
+            values.append(data['preferred_source'])
             idx += 1
         
         if 'enabled' in data:
@@ -1518,7 +1532,8 @@ async def api_get_city_pair_markups(
                 c.code as city_code,
                 c.name as city_name,
                 cpm.pair_symbol,
-                cpm.markup_percent,
+                cpm.markup_buy,
+                cpm.markup_sell,
                 cpm.markup_fixed,
                 cpm.enabled
             FROM city_pair_markups cpm
@@ -1546,7 +1561,8 @@ async def api_get_city_pair_markups(
                 "city_code": r['city_code'],
                 "city_name": r['city_name'],
                 "pair_symbol": r['pair_symbol'],
-                "markup_percent": float(r['markup_percent']),
+                "markup_buy": float(r['markup_buy']) if r.get('markup_buy') is not None else 0.0,
+                "markup_sell": float(r['markup_sell']) if r.get('markup_sell') is not None else 0.0,
                 "markup_fixed": float(r['markup_fixed']),
                 "enabled": r['enabled']
             }
@@ -1566,20 +1582,22 @@ async def api_create_city_pair_markup(
     data = await request.json()
     city_id = data.get('city_id')
     pair_symbol = data.get('pair_symbol')
-    markup_percent = float(data.get('markup_percent', 0))
+    markup_buy = float(data.get('markup_buy', 0))
+    markup_sell = float(data.get('markup_sell', 0))
     markup_fixed = float(data.get('markup_fixed', 0))
     
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute("""
-            INSERT INTO city_pair_markups (city_id, pair_symbol, markup_percent, markup_fixed)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO city_pair_markups (city_id, pair_symbol, markup_buy, markup_sell, markup_fixed)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (city_id, pair_symbol) 
             DO UPDATE SET 
-                markup_percent = EXCLUDED.markup_percent,
+                markup_buy = EXCLUDED.markup_buy,
+                markup_sell = EXCLUDED.markup_sell,
                 markup_fixed = EXCLUDED.markup_fixed,
                 updated_at = NOW()
-        """, city_id, pair_symbol, markup_percent, markup_fixed)
+        """, city_id, pair_symbol, markup_buy, markup_sell, markup_fixed)
         
         return {"success": True}
 

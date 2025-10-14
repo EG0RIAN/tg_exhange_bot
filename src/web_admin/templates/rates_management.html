@@ -273,9 +273,25 @@
                                         <label class="form-label">Название города:</label>
                                         <input type="text" class="form-control" id="newCityName" placeholder="Воронеж">
                                     </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Наценка на покупку (%):</label>
+                                            <input type="number" class="form-control" id="newCityMarkupBuy" value="-1.0" step="0.1">
+                                            <small class="text-muted">Может быть отрицательной</small>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Наценка на продажу (%):</label>
+                                            <input type="number" class="form-control" id="newCityMarkupSell" value="1.0" step="0.1">
+                                            <small class="text-muted">Может быть отрицательной</small>
+                                        </div>
+                                    </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Наценка (%):</label>
-                                        <input type="number" class="form-control" id="newCityMarkup" value="0.5" step="0.1" min="0" max="10">
+                                        <label class="form-label">Предпочтительный источник:</label>
+                                        <select class="form-control" id="newCitySource">
+                                            <option value="">Любой (автовыбор)</option>
+                                            <option value="rapira">Rapira</option>
+                                            <option value="grinex">Grinex</option>
+                                        </select>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="newCityEnabled" checked>
@@ -530,24 +546,40 @@
                 
                 let html = '';
                 citiesData.forEach(city => {
+                    const sourceIcon = city.preferred_source === 'rapira' ? '🟢' : (city.preferred_source === 'grinex' ? '🔵' : '⚪');
+                    const sourceName = city.preferred_source === 'rapira' ? 'Rapira' : (city.preferred_source === 'grinex' ? 'Grinex' : 'Авто');
+                    
                     html += `
                         <div class="city-row">
                             <div class="row align-items-center">
                                 <div class="col-md-2">
                                     <strong>${city.name}</strong>
                                     <br><small class="text-muted">${city.code}</small>
+                                    <br><small class="text-muted">${sourceIcon} ${sourceName}</small>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text">Базовая:</span>
+                                        <span class="input-group-text">Покупка:</span>
                                         <input type="number" 
                                                class="form-control markup-input" 
-                                               id="markup_${city.code}" 
-                                               value="${city.markup_percent}" 
-                                               step="0.1" 
-                                               min="0" 
-                                               max="10"
-                                               data-city-id="${city.id}">
+                                               id="markup_buy_${city.code}" 
+                                               value="${city.markup_buy}" 
+                                               step="0.1"
+                                               data-city-id="${city.id}"
+                                               data-field="markup_buy">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Продажа:</span>
+                                        <input type="number" 
+                                               class="form-control markup-input" 
+                                               id="markup_sell_${city.code}" 
+                                               value="${city.markup_sell}" 
+                                               step="0.1"
+                                               data-city-id="${city.id}"
+                                               data-field="markup_sell">
                                         <span class="input-group-text">%</span>
                                     </div>
                                 </div>
@@ -556,7 +588,7 @@
                                         ${city.enabled ? 'Активен' : 'Отключен'}
                                     </span>
                                 </div>
-                                <div class="col-md-5 text-end">
+                                <div class="col-md-4 text-end">
                                     <button class="btn btn-sm btn-outline-primary" onclick="showPairMarkups(${city.id}, '${city.name}', '${city.code}')">
                                         <i class="bi bi-sliders"></i> По парам
                                     </button>
@@ -569,38 +601,39 @@
                     `;
                 });
                 container.innerHTML = html || '<div class="alert alert-info">Нет городов. Добавьте первый город.</div>';
+                
+                // Добавляем автосохранение при изменении значений
+                document.querySelectorAll('.markup-input').forEach(input => {
+                    input.addEventListener('change', async (e) => {
+                        const cityId = e.target.getAttribute('data-city-id');
+                        const field = e.target.getAttribute('data-field');
+                        const value = parseFloat(e.target.value);
+                        
+                        try {
+                            await fetch(`/api/cities/${cityId}`, {
+                                method: 'PUT',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    [field]: value
+                                })
+                            });
+                            e.target.style.borderColor = '#198754';
+                            setTimeout(() => { e.target.style.borderColor = ''; }, 1000);
+                        } catch (error) {
+                            e.target.style.borderColor = '#dc3545';
+                            console.error('Error saving markup:', error);
+                        }
+                    });
+                });
             } catch (error) {
                 container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки городов</div>';
                 console.error('Error loading markups:', error);
             }
         }
 
-        // Сохранение наценок
+        // Сохранение наценок (устарело - теперь автосохранение)
         async function saveMarkups() {
-            const inputs = document.querySelectorAll('.markup-input');
-            let successCount = 0;
-            
-            try {
-                for (const input of inputs) {
-                    const cityId = input.getAttribute('data-city-id');
-                    const percent = parseFloat(input.value);
-                    
-                    await fetch(`/api/cities/${cityId}`, {
-                        method: 'PUT',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            markup_percent: percent
-                        })
-                    });
-                    successCount++;
-                }
-                
-                alert(`✅ Обновлено наценок: ${successCount}`);
-                loadRates(); // Обновляем таблицу курсов
-                loadMarkups(); // Перезагружаем список
-            } catch (error) {
-                alert('❌ Ошибка при сохранении: ' + error.message);
-            }
+            alert('✅ Наценки автоматически сохраняются при изменении');
         }
 
         // Загрузка статуса источников
@@ -732,7 +765,9 @@
         async function addCity() {
             const code = document.getElementById('newCityCode').value.trim();
             const name = document.getElementById('newCityName').value.trim();
-            const markup = parseFloat(document.getElementById('newCityMarkup').value);
+            const markupBuy = parseFloat(document.getElementById('newCityMarkupBuy').value);
+            const markupSell = parseFloat(document.getElementById('newCityMarkupSell').value);
+            const preferredSource = document.getElementById('newCitySource').value || null;
             const enabled = document.getElementById('newCityEnabled').checked;
             
             if (!code || !name) {
@@ -747,8 +782,10 @@
                     body: JSON.stringify({
                         code: code,
                         name: name,
-                        markup_percent: markup,
+                        markup_buy: markupBuy,
+                        markup_sell: markupSell,
                         markup_fixed: 0,
+                        preferred_source: preferredSource,
                         enabled: enabled
                     })
                 });
@@ -820,18 +857,20 @@
                 const citiesResponse = await fetch('/api/cities');
                 const citiesData = await citiesResponse.json();
                 const cityData = citiesData.find(c => c.id === cityId);
-                const baseMarkup = cityData ? cityData.markup_percent : 0;
+                const baseMarkupBuy = cityData ? cityData.markup_buy : 0;
+                const baseMarkupSell = cityData ? cityData.markup_sell : 0;
                 
                 let html = `
                     <div class="alert alert-info">
-                        <strong>Базовая наценка города:</strong> ${baseMarkup}%<br>
-                        <small>Применяется ко всем парам, если не задана специфичная наценка</small>
+                        <strong>Базовые наценки города:</strong> Покупка: ${baseMarkupBuy}% / Продажа: ${baseMarkupSell}%<br>
+                        <small>Применяются ко всем парам, если не задана специфичная наценка</small>
                     </div>
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Торговая пара</th>
-                                <th>Наценка (%)</th>
+                                <th>Наценка на покупку (%)</th>
+                                <th>Наценка на продажу (%)</th>
                                 <th>Действия</th>
                             </tr>
                         </thead>
@@ -843,21 +882,31 @@
                 
                 uniquePairs.forEach(pairSymbol => {
                     const existing = existingMarkups.find(m => m.pair_symbol === pairSymbol);
-                    const currentMarkup = existing ? existing.markup_percent : '';
+                    const currentMarkupBuy = existing ? existing.markup_buy : '';
+                    const currentMarkupSell = existing ? existing.markup_sell : '';
                     
                     html += `
                         <tr>
                             <td><strong>${pairSymbol}</strong></td>
                             <td>
-                                <div class="input-group input-group-sm" style="max-width: 200px;">
+                                <div class="input-group input-group-sm" style="max-width: 180px;">
                                     <input type="number" 
                                            class="form-control" 
-                                           id="pair_markup_${cityId}_${pairSymbol.replace('/', '_')}"
-                                           value="${currentMarkup}"
-                                           placeholder="${baseMarkup} (базовая)"
-                                           step="0.1" 
-                                           min="0" 
-                                           max="10">
+                                           id="pair_markup_buy_${cityId}_${pairSymbol.replace('/', '_')}"
+                                           value="${currentMarkupBuy}"
+                                           placeholder="${baseMarkupBuy}"
+                                           step="0.1">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-group input-group-sm" style="max-width: 180px;">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="pair_markup_sell_${cityId}_${pairSymbol.replace('/', '_')}"
+                                           value="${currentMarkupSell}"
+                                           placeholder="${baseMarkupSell}"
+                                           step="0.1">
                                     <span class="input-group-text">%</span>
                                 </div>
                             </td>
@@ -888,12 +937,15 @@
         }
 
         async function savePairMarkup(cityId, pairSymbol, cityCode) {
-            const inputId = `pair_markup_${cityId}_${pairSymbol.replace('/', '_')}`;
-            const input = document.getElementById(inputId);
-            const value = input.value.trim();
+            const inputBuyId = `pair_markup_buy_${cityId}_${pairSymbol.replace('/', '_')}`;
+            const inputSellId = `pair_markup_sell_${cityId}_${pairSymbol.replace('/', '_')}`;
+            const inputBuy = document.getElementById(inputBuyId);
+            const inputSell = document.getElementById(inputSellId);
+            const valueBuy = inputBuy.value.trim();
+            const valueSell = inputSell.value.trim();
             
-            if (!value) {
-                alert('Введите наценку или удалите специфичное правило');
+            if (!valueBuy && !valueSell) {
+                alert('Введите хотя бы одну наценку или удалите специфичное правило');
                 return;
             }
             
@@ -904,7 +956,8 @@
                     body: JSON.stringify({
                         city_id: cityId,
                         pair_symbol: pairSymbol,
-                        markup_percent: parseFloat(value),
+                        markup_buy: valueBuy ? parseFloat(valueBuy) : 0,
+                        markup_sell: valueSell ? parseFloat(valueSell) : 0,
                         markup_fixed: 0
                     })
                 });

@@ -172,18 +172,22 @@ async def get_city_rate(symbol: str, city: str, operation: str = "buy") -> Optio
         logger.error(f"No base rate available for {symbol} operation {operation}")
         return None
     
-    # Получаем наценку для города из таблицы cities
+    # Получаем наценку для города из таблицы cities (раздельно на покупку/продажу)
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
         city_data = await conn.fetchrow("""
-            SELECT markup_percent, markup_fixed
+            SELECT markup_buy, markup_sell, markup_fixed
             FROM cities
             WHERE code = $1 AND enabled = true
             LIMIT 1
         """, city)
         
         if city_data:
-            markup_percent = Decimal(str(city_data['markup_percent']))
+            # Выбираем наценку в зависимости от операции
+            if operation == "buy":
+                markup_percent = Decimal(str(city_data['markup_buy']))
+            else:
+                markup_percent = Decimal(str(city_data['markup_sell']))
             markup_fixed = Decimal(str(city_data['markup_fixed']))
         else:
             # Дефолтная наценка если город не найден
