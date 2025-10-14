@@ -81,44 +81,16 @@ async def get_all_cities_keyboard() -> InlineKeyboardMarkup:
     kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_priority_cities")])
     return add_manager_button(kb)
 
-def get_currencies_keyboard(country: str = "russia") -> InlineKeyboardMarkup:
-    """Клавиатура выбора валюты в зависимости от страны"""
-    currencies = {
-        "russia": [
-            ("₽ RUB (Рубль)", "RUB"),
-            ("$ USD (Доллар)", "USD"),
-            ("€ EUR (Евро)", "EUR"),
-        ],
-        "kazakhstan": [
-            ("₸ KZT (Тенге)", "KZT"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-        "uzbekistan": [
-            ("UZS (Сум)", "UZS"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-        "azerbaijan": [
-            ("₼ AZN (Манат)", "AZN"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-        "georgia": [
-            ("₾ GEL (Лари)", "GEL"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-        "turkey": [
-            ("₺ TRY (Лира)", "TRY"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-        "uae": [
-            ("د.إ AED (Дирхам)", "AED"),
-            ("$ USD (Доллар)", "USD"),
-        ],
-    }
-    
-    country_currencies = currencies.get(country, currencies["russia"])
+def get_currencies_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора валюты (основные валюты)"""
+    currencies = [
+        ("₽ RUB (Рубль)", "RUB"),
+        ("$ USD (Доллар)", "USD"),
+        ("€ EUR (Евро)", "EUR"),
+    ]
     
     buttons = [[InlineKeyboardButton(text=name, callback_data=f"currency:{code}")] 
-               for name, code in country_currencies]
+               for name, code in currencies]
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])

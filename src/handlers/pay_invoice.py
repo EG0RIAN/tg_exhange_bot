@@ -11,7 +11,6 @@ from src.fsm import PayInvoiceStates
 from src.keyboards import (
     get_invoice_purposes_keyboard,
     get_payment_methods_keyboard,
-    get_countries_keyboard,
     get_priority_cities_keyboard,
     get_all_cities_keyboard,
     get_amount_keyboard_v2,
@@ -72,12 +71,12 @@ async def choose_payment_method(callback: CallbackQuery, state: FSMContext):
     await state.update_data(payment_method=payment_method)
     
     if payment_method == "cash":
-        # Если наличные - выбираем страну
-        await state.set_state(PayInvoiceStates.choose_country)
+        # Если наличные - выбираем город
+        await state.set_state(PayInvoiceStates.choose_city)
         await callback.message.edit_text(
             "✅ Способ оплаты: 💵 Наличные\n\n"
-            "🌍 <b>Выберите страну:</b>",
-            reply_markup=get_countries_keyboard(),
+            "🏙 <b>Выберите город:</b>",
+            reply_markup=await get_priority_cities_keyboard(),
             parse_mode="HTML"
         )
     else:
@@ -94,35 +93,8 @@ async def choose_payment_method(callback: CallbackQuery, state: FSMContext):
 
 
 # ============================================================================
-# Ветка "Наличные" - выбор страны и города
+# Ветка "Наличные" - выбор города
 # ============================================================================
-
-@router.callback_query(PayInvoiceStates.choose_country, F.data.startswith("country:"))
-async def choose_country(callback: CallbackQuery, state: FSMContext):
-    """Выбор страны (только для наличных)"""
-    country = callback.data.split(":", 1)[1]
-    
-    country_names = {
-        "russia": "🇷🇺 Россия",
-        "kazakhstan": "🇰🇿 Казахстан",
-        "uzbekistan": "🇺🇿 Узбекистан",
-        "azerbaijan": "🇦🇿 Азербайджан",
-        "georgia": "🇬🇪 Грузия",
-        "turkey": "🇹🇷 Турция",
-        "uae": "🇦🇪 ОАЭ",
-    }
-    
-    await state.update_data(country=country, country_name=country_names.get(country, country))
-    await state.set_state(PayInvoiceStates.choose_city)
-    
-    await callback.message.edit_text(
-        f"✅ Выбрана страна: {country_names.get(country)}\n\n"
-        "🏙 <b>Выберите город:</b>",
-        reply_markup=await get_priority_cities_keyboard(),
-        parse_mode="HTML"
-    )
-    await callback.answer()
-
 
 @router.callback_query(PayInvoiceStates.choose_city, F.data == "city:other")
 async def show_all_cities(callback: CallbackQuery):
@@ -296,7 +268,6 @@ async def enter_username(message: Message, state: FSMContext):
     
     if data.get('payment_method') == 'cash':
         summary += (
-            f"🌍 Страна: {data.get('country_name', 'N/A')}\n"
             f"🏙 Город: {data.get('city_name', 'N/A')}\n"
         )
     
@@ -328,16 +299,15 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
         order_id = await conn.fetchval("""
             INSERT INTO orders (
                 user_id, username, order_type, 
-                country, city, payment_method, purpose, 
+                city, payment_method, purpose, 
                 amount, invoice_file_id, invoice_file_type, 
                 status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
             RETURNING id
         """,
             callback.from_user.id,
             data.get('username'),
             'pay_invoice',
-            data.get('country'),
             data.get('city'),
             data.get('payment_method'),
             data.get('purpose'),

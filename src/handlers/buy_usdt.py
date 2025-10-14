@@ -10,7 +10,6 @@ from aiogram.filters import StateFilter
 
 from src.fsm import BuyUSDTStates
 from src.keyboards import (
-    get_countries_keyboard,
     get_priority_cities_keyboard,
     get_all_cities_keyboard,
     get_currencies_keyboard,
@@ -36,48 +35,17 @@ MANAGER_USERNAME = "@btc_otc"
 async def start_buy_usdt(message: Message, state: FSMContext):
     """Начало пути покупки USDT"""
     await state.clear()
-    await state.set_state(BuyUSDTStates.choose_country)
-    
-    await message.answer(
-        "🌍 <b>Выберите страну:</b>",
-        reply_markup=get_countries_keyboard(),
-        parse_mode="HTML"
-    )
-
-
-# ============================================================================
-# Шаг 2: Выбор страны
-# ============================================================================
-
-@router.callback_query(BuyUSDTStates.choose_country, F.data.startswith("country:"))
-async def choose_country(callback: CallbackQuery, state: FSMContext):
-    """Выбор страны"""
-    country = callback.data.split(":", 1)[1]
-    
-    country_names = {
-        "russia": "🇷🇺 Россия",
-        "kazakhstan": "🇰🇿 Казахстан",
-        "uzbekistan": "🇺🇿 Узбекистан",
-        "azerbaijan": "🇦🇿 Азербайджан",
-        "georgia": "🇬🇪 Грузия",
-        "turkey": "🇹🇷 Турция",
-        "uae": "🇦🇪 ОАЭ",
-    }
-    
-    await state.update_data(country=country, country_name=country_names.get(country, country))
     await state.set_state(BuyUSDTStates.choose_city)
     
-    await callback.message.edit_text(
-        f"✅ Выбрана страна: {country_names.get(country)}\n\n"
+    await message.answer(
         "🏙 <b>Выберите город:</b>",
         reply_markup=await get_priority_cities_keyboard(),
         parse_mode="HTML"
     )
-    await callback.answer()
 
 
 # ============================================================================
-# Шаг 3: Выбор города
+# Шаг 2: Выбор города
 # ============================================================================
 
 @router.callback_query(BuyUSDTStates.choose_city, F.data == "city:other")
@@ -127,13 +95,10 @@ async def choose_city(callback: CallbackQuery, state: FSMContext):
     await state.update_data(city=city_code, city_name=city_name)
     await state.set_state(BuyUSDTStates.choose_currency)
     
-    data = await state.get_data()
-    country = data.get('country', 'russia')
-    
     await callback.message.edit_text(
         f"✅ Выбран город: {city_name}\n\n"
         "💱 <b>Выберите валюту для оплаты:</b>",
-        reply_markup=get_currencies_keyboard(country),
+        reply_markup=get_currencies_keyboard(),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -234,7 +199,6 @@ async def enter_username(message: Message, state: FSMContext):
     summary = (
         "📋 <b>Проверьте вашу заявку:</b>\n\n"
         f"🔄 Операция: <b>Покупка USDT</b>\n"
-        f"🌍 Страна: {data.get('country_name', 'N/A')}\n"
         f"🏙 Город: {data.get('city_name', 'N/A')}\n"
         f"💱 Валюта: {data.get('currency', 'N/A')}\n"
         f"💰 Сумма: ${data.get('amount', 'N/A')}\n"
@@ -263,14 +227,13 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     async with pool.acquire() as conn:
         order_id = await conn.fetchval("""
             INSERT INTO orders (
-                user_id, username, order_type, country, city, currency, amount, status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                user_id, username, order_type, city, currency, amount, status, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
             RETURNING id
         """,
             callback.from_user.id,
             data.get('username'),
             'buy_usdt',
-            data.get('country'),
             data.get('city'),
             data.get('currency'),
             data.get('amount'),
@@ -299,11 +262,11 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:edit")
 async def edit_order(callback: CallbackQuery, state: FSMContext):
     """Изменение заявки"""
-    await state.set_state(BuyUSDTStates.choose_country)
+    await state.set_state(BuyUSDTStates.choose_city)
     await callback.message.edit_text(
         "🔄 Начнем заново.\n\n"
-        "🌍 <b>Выберите страну:</b>",
-        reply_markup=get_countries_keyboard(),
+        "🏙 <b>Выберите город:</b>",
+        reply_markup=await get_priority_cities_keyboard(),
         parse_mode="HTML"
     )
     await callback.answer()
