@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>История сообщений - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">
+            <i class="bi bi-shield-check"></i> Админка
+        </a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">
+                <i class="bi bi-person-circle"></i> {{ user }}
+            </span>
+            <a href="/logout" class="btn btn-outline-light">
+                <i class="bi bi-box-arrow-right"></i> Выйти
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-clock-history"></i> История сообщений</h1>
+        <div>
+            <a href="/admin/send-message" class="btn btn-primary me-2">
+                <i class="bi bi-envelope"></i> Отправить сообщение
+            </a>
+            <a href="/admin" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Отправленные сообщения</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Дата/Время</th>
+                            <th>Отправитель</th>
+                            <th>Получатель</th>
+                            <th>Сообщение</th>
+                            <th>Статистика</th>
+                            <th>Формат</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for msg in messages %}
+                        <tr>
+                            <td>{{ msg.id }}</td>
+                            <td>
+                                <small>{{ msg.created_at.strftime('%d.%m.%Y') }}</small><br>
+                                <small class="text-muted">{{ msg.created_at.strftime('%H:%M:%S') }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-person"></i> {{ msg.admin_user }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if msg.recipient_type == 'all' %}
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-people"></i> Всем пользователям
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-person"></i> TG ID: {{ msg.recipient_tg_id }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="max-width: 300px; max-height: 100px; overflow: auto;">
+                                    <small>{{ msg.message_text[:100] }}{% if msg.message_text|length > 100 %}...{% endif %}</small>
+                                </div>
+                                {% if msg.message_text|length > 100 %}
+                                <button class="btn btn-sm btn-link" onclick="showFullMessage({{ msg.id }}, `{{ msg.message_text|replace('`', '\\`')|replace('\n', '\\n') }}`)">
+                                    <i class="bi bi-eye"></i> Показать полностью
+                                </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>
+                                    {% if msg.recipient_type == 'all' %}
+                                        <strong>Всего:</strong> {{ msg.total_count }}<br>
+                                        <span class="text-success">
+                                            <i class="bi bi-check-circle"></i> Отправлено: {{ msg.sent_count }}
+                                        </span><br>
+                                        {% if msg.failed_count > 0 %}
+                                        <span class="text-danger">
+                                            <i class="bi bi-x-circle"></i> Ошибок: {{ msg.failed_count }}
+                                        </span>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if msg.sent_count > 0 %}
+                                        <span class="text-success">
+                                            <i class="bi bi-check-circle"></i> Отправлено
+                                        </span>
+                                        {% else %}
+                                        <span class="text-danger">
+                                            <i class="bi bi-x-circle"></i> Ошибка
+                                        </span>
+                                        {% endif %}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                {% if msg.parse_mode %}
+                                    <span class="badge bg-warning">{{ msg.parse_mode }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Plain</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {% if not messages %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">
+                                <i class="bi bi-inbox"></i> История пуста
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для полного текста сообщения -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Полный текст сообщения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="fullMessageText" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function showFullMessage(id, text) {
+    document.getElementById('fullMessageText').textContent = text;
+    const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+    modal.show();
+}
+</script>
+
+</body>
+</html>
+
+
+
+

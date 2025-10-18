@@ -8,7 +8,7 @@ main_menu = ReplyKeyboardMarkup(
         [KeyboardButton(text="💵 Купить USDT")],
         [KeyboardButton(text="💸 Продать USDT")],
         [KeyboardButton(text="📄 Оплатить инвойс")],
-        [KeyboardButton(text="📖 FAQ"), KeyboardButton(text="💱 Курсы")],
+        [KeyboardButton(text="📖 FAQ")],
         [KeyboardButton(text="👨‍💼 Связаться с менеджером")],
     ],
     resize_keyboard=True
@@ -81,11 +81,10 @@ async def get_all_cities_keyboard() -> InlineKeyboardMarkup:
     kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_priority_cities")])
     return add_manager_button(kb)
 
-def get_currencies_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора валюты (основные валюты)"""
+def get_currencies_keyboard(city_code=None) -> InlineKeyboardMarkup:
+    """Клавиатура выбора валюты (только рубль)"""
     currencies = [
         ("₽ RUB (Рубль)", "RUB"),
-        ("$ USD (Доллар)", "USD"),
     ]
     
     buttons = [[InlineKeyboardButton(text=name, callback_data=f"currency:{code}")] 
@@ -96,19 +95,12 @@ def get_currencies_keyboard() -> InlineKeyboardMarkup:
     return add_manager_button(kb)
 
 def get_amount_keyboard_v2():
-    """Клавиатура выбора суммы (новая версия)"""
+    """Клавиатура для ввода суммы (только кнопка назад)"""
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="$100", callback_data="amount:100"),
-             InlineKeyboardButton(text="$250", callback_data="amount:250")],
-            [InlineKeyboardButton(text="$500", callback_data="amount:500"),
-             InlineKeyboardButton(text="$1000", callback_data="amount:1000")],
-            [InlineKeyboardButton(text="$5000", callback_data="amount:5000"),
-             InlineKeyboardButton(text="$10000", callback_data="amount:10000")],
-            [InlineKeyboardButton(text="📝 Своя сумма", callback_data="amount:custom")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back")]
         ]
     )
-    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
     return add_manager_button(kb)
 
 def get_payment_methods_keyboard() -> InlineKeyboardMarkup:
@@ -146,6 +138,17 @@ def get_confirm_keyboard_v2():
     )
     return add_manager_button(kb)
 
+def get_rate_confirm_keyboard():
+    """Клавиатура подтверждения курса"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить курс", callback_data="rate:confirm")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="rate:cancel")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back")],
+        ]
+    )
+    return add_manager_button(kb)
+
 def get_pairs_keyboard(pairs: list[str]) -> InlineKeyboardMarkup:
     buttons = [InlineKeyboardButton(text=pair, callback_data=f"pair:{pair}") for pair in pairs]
     rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
@@ -170,38 +173,17 @@ def get_payout_keyboard(methods: list[str]) -> InlineKeyboardMarkup:
     return add_back_button(kb)
 
 async def get_cities_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора города (динамическая из БД)"""
-    from src.db import get_pg_pool
-    
-    pool = await get_pg_pool()
-    async with pool.acquire() as conn:
-        cities = await conn.fetch("""
-            SELECT code, name FROM cities 
-            WHERE enabled = true 
-            ORDER BY sort_order, name
-        """)
-    
-    # Эмодзи для городов
-    city_emojis = {
-        'moscow': '🏛',
-        'spb': '🌉',
-        'rostov': '🏭',
-        'nizhniy_novgorod': '🏰',
-        'ekaterinburg': '🏢',
-        'kazan': '🕌',
-        'other': '🌍'
-    }
-    
-    buttons = []
-    for city in cities:
-        emoji = city_emojis.get(city['code'], '🏙')
-        buttons.append([InlineKeyboardButton(
-            text=f"{emoji} {city['name']}", 
-            callback_data=f"city:{city['code']}"
-        )])
-    
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    return add_back_button(kb)
+    """Клавиатура выбора города с приоритетными городами + кнопка 'Остальные города'"""
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏛 Москва", callback_data="city:moscow")],
+            [InlineKeyboardButton(text="🌉 Санкт-Петербург", callback_data="city:spb")],
+            [InlineKeyboardButton(text="🌴 Краснодар", callback_data="city:krasnodar")],
+            [InlineKeyboardButton(text="🏭 Ростов-на-Дону", callback_data="city:rostov")],
+            [InlineKeyboardButton(text="🌍 Остальные города", callback_data="city:other")],
+        ]
+    )
+    return kb
 
 def get_confirm_keyboard():
     kb = InlineKeyboardMarkup(

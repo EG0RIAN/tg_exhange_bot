@@ -101,7 +101,11 @@
                             <p><strong>Дата создания:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</p>
                             
                             {% if order.username %}
-                            <p><strong>Username:</strong> @{{ order.username }}</p>
+                            <p><strong>Username пользователя:</strong> @{{ order.username }}</p>
+                            {% endif %}
+                            
+                            {% if order.order_username %}
+                            <p><strong>Username из заявки:</strong> {{ order.order_username }}</p>
                             {% endif %}
                             
                             {% if order.contact %}
@@ -151,7 +155,7 @@
                     <form method="POST" action="/admin/orders/{{ order.id }}/status">
                         <div class="mb-3">
                             <label for="status" class="form-label">Новый статус:</label>
-                            <select class="form-select" id="status" name="status" required>
+                            <select class="form-select" id="status" name="new_status" required>
                                 <option value="new" {% if order.status == 'new' %}selected{% endif %}>Новая</option>
                                 <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>В обработке</option>
                                 <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Завершена</option>
@@ -162,6 +166,23 @@
                             <i class="bi bi-check-circle"></i> Обновить статус
                         </button>
                     </form>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Связь с пользователем</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/admin/send-message?user_id={{ order.tg_id }}" class="btn btn-success">
+                            <i class="bi bi-envelope"></i> Отправить сообщение
+                        </a>
+                        <a href="https://t.me/{{ order.username|replace('@', '') if order.username else order.tg_id }}" 
+                           target="_blank" class="btn btn-outline-primary">
+                            <i class="bi bi-telegram"></i> Написать в Telegram
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

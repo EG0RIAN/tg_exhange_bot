@@ -6,6 +6,8 @@ from starlette.middleware.sessions import SessionMiddleware
 import os
 import asyncpg
 import logging
+import httpx
+import asyncio
 from typing import Optional
 from datetime import datetime
 
@@ -18,6 +20,7 @@ app.mount("/static", StaticFiles(directory="src/web_admin/static"), name="static
 
 ADMIN_LOGIN = os.getenv("ADMIN_LOGIN", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "1i_X%9644XS1:d8=vHGV")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 # Database connection pool
 _db_pool = None
@@ -643,6 +646,7 @@ async def orders_list(request: Request, user=Depends(get_current_user)):
     async with pool.acquire() as conn:
         orders = await conn.fetch("""
             SELECT o.id, o.pair, o.amount, o.payout_method, o.contact, o.status, o.created_at,
+                   o.order_type, o.city, o.currency,
                    u.first_name, u.username, u.tg_id
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.id
@@ -665,7 +669,9 @@ async def order_detail(request: Request, order_id: int, user=Depends(get_current
     async with pool.acquire() as conn:
         order = await conn.fetchrow("""
             SELECT o.id, o.pair, o.amount, o.payout_method, o.contact, o.status, o.created_at,
-                   o.rate_snapshot, u.first_name, u.username, u.tg_id, u.lang
+                   o.rate_snapshot, o.order_type, o.city, o.currency, o.payment_method, 
+                   o.purpose, o.invoice_file_id, o.username as order_username,
+                   u.first_name, u.username, u.tg_id, u.lang
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.id
             WHERE o.id = $1
@@ -685,7 +691,7 @@ async def update_order_status(
     request: Request,
     order_id: int,
     user=Depends(get_current_user),
-    status: str = Form(...)
+    new_status: str = Form(...)
 ):
     if not user:
         return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
@@ -694,7 +700,7 @@ async def update_order_status(
     async with pool.acquire() as conn:
         await conn.execute("""
             UPDATE orders SET status = $1 WHERE id = $2
-        """, status, order_id)
+        """, new_status, order_id)
     
     return RedirectResponse(f"/admin/orders/{order_id}", status_code=status.HTTP_302_FOUND)
 
@@ -1234,8 +1240,8 @@ async def api_get_all_city_rates(
     # Выбираем базовую цену
     base_rate = base_data['best_ask'] if operation == "buy" else base_data['best_bid']
     if not base_rate:
-        return {
-            "success": False,
+            return {
+                "success": False,
             "error": "No rate for operation",
             "symbol": symbol,
             "rates": {}
@@ -1248,7 +1254,10 @@ async def api_get_all_city_rates(
             SELECT 
                 c.code,
                 c.name,
-                COALESCE(cpm.markup_percent, c.markup_percent) as markup_percent,
+                c.markup_buy,
+                c.markup_sell,
+                COALESCE(cpm.markup_buy, c.markup_buy) as city_markup_buy,
+                COALESCE(cpm.markup_sell, c.markup_sell) as city_markup_sell,
                 COALESCE(cpm.markup_fixed, c.markup_fixed) as markup_fixed
             FROM cities c
             LEFT JOIN city_pair_markups cpm ON cpm.city_id = c.id 
@@ -1261,7 +1270,11 @@ async def api_get_all_city_rates(
     results = {}
     
     for city in cities_data:
-        markup_percent = float(city['markup_percent'])
+        # Выбираем наценку в зависимости от операции
+        if operation == "buy":
+            markup_percent = float(city['city_markup_buy'])
+        else:
+            markup_percent = float(city['city_markup_sell'])
         markup_fixed = float(city['markup_fixed'])
         
         # Применяем наценку
@@ -1331,7 +1344,7 @@ async def api_rapira_base_rate(
         if not rate:
             raise HTTPException(status_code=503, detail="Rapira API unavailable")
         
-        return {
+            return {
             "symbol": rate['symbol'],
             "best_ask": float(rate['best_ask']) if rate['best_ask'] else None,
             "best_bid": float(rate['best_bid']) if rate['best_bid'] else None,
@@ -1352,7 +1365,7 @@ async def test_rapira_base_rate(symbol: str = "USDT/RUB"):
         if not rate:
             return {"error": "Rapira API unavailable", "symbol": symbol}
         
-        return {
+            return {
             "success": True,
             "symbol": rate['symbol'],
             "best_ask": float(rate['best_ask']) if rate['best_ask'] else None,
@@ -1672,7 +1685,6 @@ async def api_create_source_pair(
                 VALUES ($1, $2, $1, $2, $3)
                 ON CONFLICT (base_currency, quote_currency) DO NOTHING
             """, base, quote, enabled)
-        
             
             return {
                 "success": True,
@@ -1738,3 +1750,180 @@ async def api_delete_source_pair(
         await conn.execute("DELETE FROM fx_source_pair WHERE id = $1", pair_id)
         
         return {"success": True, "pair_id": pair_id}
+
+
+# ============================================================================
+# MESSAGING - Отправка сообщений пользователям
+# ============================================================================
+
+@app.get("/admin/send-message", response_class=HTMLResponse)
+async def send_message_page(request: Request, user=Depends(get_current_user), user_id: Optional[int] = None):
+    """Страница для отправки сообщений пользователям"""
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    
+    return templates.TemplateResponse("send_message.html", {
+        "request": request,
+        "user": user,
+        "user_id": user_id
+    })
+
+
+@app.get("/admin/message-history", response_class=HTMLResponse)
+async def message_history_page(request: Request, user=Depends(get_current_user)):
+    """Страница истории отправленных сообщений"""
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        messages = await conn.fetch("""
+            SELECT id, admin_user, recipient_type, recipient_tg_id, message_text, 
+                   parse_mode, sent_count, failed_count, total_count, created_at
+            FROM message_history
+            ORDER BY created_at DESC
+            LIMIT 100
+        """)
+    
+    return templates.TemplateResponse("message_history.html", {
+        "request": request,
+        "user": user,
+        "messages": messages
+    })
+
+
+@app.get("/api/users/count")
+async def api_get_users_count(user=Depends(get_current_user)):
+    """API: Получить количество пользователей"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        count = await conn.fetchval("SELECT COUNT(*) FROM users")
+        return {"count": count}
+
+
+@app.post("/api/send-message")
+async def api_send_message(
+    request: Request,
+    user=Depends(get_current_user)
+):
+    """API: Отправить сообщение пользователю или всем пользователям"""
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    if not BOT_TOKEN:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Bot token not configured")
+    
+    data = await request.json()
+    recipient_type = data.get('recipient_type')
+    user_id = data.get('user_id')
+    message = data.get('message')
+    parse_mode = data.get('parse_mode')
+    
+    if not message:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    pool = await get_db_pool()
+    
+    if recipient_type == 'specific':
+        # Отправка конкретному пользователю
+        if not user_id:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="User ID is required")
+        
+        success = await send_telegram_message(user_id, message, parse_mode)
+        
+        # Сохраняем в историю
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO message_history (admin_user, recipient_type, recipient_tg_id, message_text, parse_mode, sent_count, failed_count, total_count)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """, user, recipient_type, user_id, message, parse_mode, 1 if success else 0, 0 if success else 1, 1)
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Сообщение отправлено пользователю {user_id}",
+                "sent": 1,
+                "total": 1,
+                "failed": 0
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Не удалось отправить сообщение пользователю {user_id}"
+            }
+    
+    elif recipient_type == 'all':
+        # Отправка всем пользователям
+        async with pool.acquire() as conn:
+            users = await conn.fetch("SELECT tg_id FROM users WHERE tg_id IS NOT NULL")
+        
+        total = len(users)
+        sent = 0
+        failed = 0
+        
+        for user_row in users:
+            tg_id = user_row['tg_id']
+            success = await send_telegram_message(tg_id, message, parse_mode)
+            
+            if success:
+                sent += 1
+            else:
+                failed += 1
+            
+            # Задержка между сообщениями для предотвращения блокировки бота
+            await asyncio.sleep(0.05)  # 50ms между сообщениями
+        
+        # Сохраняем в историю
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO message_history (admin_user, recipient_type, recipient_tg_id, message_text, parse_mode, sent_count, failed_count, total_count)
+                VALUES ($1, $2, NULL, $3, $4, $5, $6, $7)
+            """, user, recipient_type, message, parse_mode, sent, failed, total)
+        
+        return {
+            "success": True,
+            "message": f"Отправлено {sent} из {total} сообщений (ошибок: {failed})",
+            "sent": sent,
+            "total": total,
+            "failed": failed
+        }
+    
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid recipient_type")
+
+
+async def send_telegram_message(chat_id: int, text: str, parse_mode: Optional[str] = None) -> bool:
+    """Отправка сообщения через Telegram Bot API"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    
+    payload = {
+        "chat_id": chat_id,
+        "text": text
+    }
+    
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload)
+            result = response.json()
+            
+            if result.get("ok"):
+                logger.info(f"Message sent to {chat_id}")
+                return True
+            else:
+                logger.error(f"Failed to send message to {chat_id}: {result.get('description')}")
+                return False
+    except Exception as e:
+        logger.error(f"Error sending message to {chat_id}: {e}")
+        return False

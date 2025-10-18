@@ -10,9 +10,10 @@ from aiogram.fsm.state import State, StatesGroup
 # ============================================================================
 class BuyUSDTStates(StatesGroup):
     """Состояния для покупки USDT клиентом"""
-    choose_city = State()          # Выбор города
-    choose_currency = State()      # Выбор валюты (USD/RUB и т.п.)
     enter_amount = State()         # Ввод суммы
+    choose_city = State()          # Выбор города
+    confirm_rate = State()         # Подтверждение курса
+    choose_currency = State()      # Выбор валюты (USD/RUB и т.п.)
     enter_username = State()       # Ввод username
     confirm = State()              # Подтверждение заявки
 
@@ -22,9 +23,10 @@ class BuyUSDTStates(StatesGroup):
 # ============================================================================
 class SellUSDTStates(StatesGroup):
     """Состояния для продажи USDT клиентом"""
-    choose_city = State()          # Выбор города
-    choose_currency = State()      # Выбор валюты для выдачи наличных
     enter_amount = State()         # Ввод суммы
+    choose_city = State()          # Выбор города
+    confirm_rate = State()         # Подтверждение курса
+    choose_currency = State()      # Выбор валюты для выдачи наличных
     enter_username = State()       # Ввод username
     confirm = State()              # Подтверждение заявки
 
@@ -36,8 +38,9 @@ class PayInvoiceStates(StatesGroup):
     """Состояния для оплаты инвойса"""
     choose_purpose = State()       # Выбор цели инвойса
     choose_payment_method = State() # Выбор способа оплаты (наличные/USDT)
-    choose_city = State()          # Выбор города (если наличные)
     enter_amount = State()         # Ввод суммы
+    choose_currency = State()      # Выбор валюты (если наличные)
+    choose_city = State()          # Выбор города (если наличные)
     attach_invoice = State()       # Прикрепление файла инвойса
     enter_username = State()       # Ввод username
     confirm = State()              # Подтверждение заявки

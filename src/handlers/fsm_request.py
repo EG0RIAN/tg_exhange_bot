@@ -138,14 +138,14 @@ async def enter_custom_amount(message: Message, state: FSMContext):
 async def select_payout(callback: CallbackQuery, state: FSMContext):
     payout = callback.data.split(":", 1)[1]
     await state.update_data(payout_method=payout)
-    await callback.message.edit_text(f"{PROGRESS[3]}\nВведите контакт (телефон в формате +79991234567 или @username):")
+    await callback.message.edit_text(f"{PROGRESS[3]}\nНапишите свой телеграм-юзернейм через @ (пример: @btc_otc)")
     await state.set_state(RequestFSM.ContactInfo)
     await start_timeout(state, callback.message.chat.id, callback.bot)
 
 @router.message(RequestFSM.ContactInfo)
 async def enter_contact(message: Message, state: FSMContext):
     if not is_valid_contact(message.text):
-        await message.answer("Некорректный контакт. Введите телефон в формате +79991234567 или @username.")
+        await message.answer("Некорректный контакт. Напишите свой телеграм-юзернейм через @ (пример: @btc_otc)")
         return
     await state.update_data(contact=message.text)
     data = await state.get_data()
@@ -259,6 +259,6 @@ async def back_to_payout(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(RequestFSM.Confirm, F.data == "back")
 async def back_to_contact(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(f"{PROGRESS[3]}\nВведите контакт (телефон в формате +79991234567 или @username):")
+    await callback.message.edit_text(f"{PROGRESS[3]}\nНапишите свой телеграм-юзернейм через @ (пример: @btc_otc)")
     await state.set_state(RequestFSM.ContactInfo)
     await start_timeout(state, callback.message.chat.id, callback.bot) 

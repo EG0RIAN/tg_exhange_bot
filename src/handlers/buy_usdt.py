@@ -6,7 +6,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter
+from aiogram.filters import StateFilter, Command
 
 from src.fsm import BuyUSDTStates
 from src.keyboards import (
@@ -15,6 +15,7 @@ from src.keyboards import (
     get_currencies_keyboard,
     get_amount_keyboard_v2,
     get_confirm_keyboard_v2,
+    get_rate_confirm_keyboard,
     main_menu
 )
 from src.db import get_pg_pool
@@ -28,24 +29,67 @@ MANAGER_USERNAME = "@btc_otc"
 
 
 # ============================================================================
-# Шаг 1: Начало - кнопка "💵 Купить USDT"
+# Универсальный обработчик /start для сброса состояния
+# ============================================================================
+
+@router.message(Command("start"), StateFilter(BuyUSDTStates))
+async def reset_to_start(message: Message, state: FSMContext):
+    """Сброс состояния и возврат в главное меню"""
+    await state.clear()
+    from src.i18n import _, detect_user_lang
+    pool = await get_pg_pool()
+    lang = await detect_user_lang(message.from_user, db_pool=pool)
+    await message.answer(_("start_message", lang=lang), reply_markup=main_menu)
+
+
+# ============================================================================
+# Шаг 1: Начало - кнопка "💵 Купить USDT" - Ввод суммы
 # ============================================================================
 
 @router.message(F.text == "💵 Купить USDT")
 async def start_buy_usdt(message: Message, state: FSMContext):
-    """Начало пути покупки USDT"""
+    """Начало пути покупки USDT - ввод суммы"""
     await state.clear()
-    await state.set_state(BuyUSDTStates.choose_city)
+    await state.set_state(BuyUSDTStates.enter_amount)
     
     await message.answer(
-        "🏙 <b>Выберите город:</b>",
-        reply_markup=await get_priority_cities_keyboard(),
+        "💰 <b>Введите Сумму USDT:</b>\n\n"
+        "Например: 100 или 1500.50",
+        reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
 
 
 # ============================================================================
-# Шаг 2: Выбор города
+# Шаг 2: Ввод суммы
+# ============================================================================
+
+
+
+@router.message(BuyUSDTStates.enter_amount, F.text)
+async def enter_custom_amount(message: Message, state: FSMContext):
+    """Ввод произвольной суммы"""
+    try:
+        amount = float(message.text.replace(',', '.'))
+        if amount <= 0:
+            await message.answer("⚠️ Сумма должна быть больше нуля. Попробуйте еще раз:")
+            return
+        
+        await state.update_data(amount=str(amount))
+        await state.set_state(BuyUSDTStates.choose_city)
+        
+        await message.answer(
+            f"✅ Сумма: ${amount}\n\n"
+            "🏙 <b>Выберите город:</b>",
+            reply_markup=await get_priority_cities_keyboard(),
+            parse_mode="HTML"
+        )
+    except ValueError:
+        await message.answer("⚠️ Неверный формат суммы. Введите число (например: 100 или 100.5):")
+
+
+# ============================================================================
+# Шаг 3: Выбор города
 # ============================================================================
 
 @router.callback_query(BuyUSDTStates.choose_city, F.data == "city:other")
@@ -65,6 +109,20 @@ async def back_to_priority_cities(callback: CallbackQuery):
     await callback.message.edit_text(
         "🏙 <b>Выберите город:</b>",
         reply_markup=await get_priority_cities_keyboard(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(BuyUSDTStates.choose_city, F.data == "back")
+async def back_from_city(callback: CallbackQuery, state: FSMContext):
+    """Назад к выбору суммы"""
+    await state.set_state(BuyUSDTStates.enter_amount)
+    
+    await callback.message.edit_text(
+        "💰 <b>Введите Сумму USDT:</b>\n\n"
+        "Например: 100 или 1500.50",
+        reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -93,20 +151,141 @@ async def choose_city(callback: CallbackQuery, state: FSMContext):
     city_name = city_row['name']
     
     await state.update_data(city=city_code, city_name=city_name)
-    await state.set_state(BuyUSDTStates.choose_currency)
+    await state.set_state(BuyUSDTStates.confirm_rate)
+    
+    # Получаем данные для расчета курса
+    data = await state.get_data()
+    amount = float(data.get('amount', 0))
+    
+    # Получаем курс USDT/RUB для покупки
+    from src.services.best_rate import get_best_city_rate
+    
+    rate_info = await get_best_city_rate('USDT/RUB', city_code, 'buy')
+    
+    if rate_info:
+        rate = rate_info['final_rate']
+        # Рассчитываем сколько рублей нужно отдать за USDT
+        rub_amount = amount * rate
+        
+        rate_text = (
+            f"✅ Город: {city_name}\n"
+            f"💰 Сумма: {amount:,.0f} USDT\n\n"
+            f"📊 <b>Текущий курс:</b>\n"
+            f"1 USDT = {rate:,.2f} RUB\n\n"
+            f"💵 <b>К оплате:</b> {rub_amount:,.2f} RUB\n\n"
+            "Подтверждаете курс?"
+        )
+    else:
+        # Fallback если курс не получен
+        rate_text = (
+            f"✅ Город: {city_name}\n"
+            f"💰 Сумма: {amount:,.0f} USDT\n\n"
+            "⚠️ <b>Курс временно недоступен</b>\n\n"
+            "Продолжить оформление заявки?"
+        )
     
     await callback.message.edit_text(
-        f"✅ Выбран город: {city_name}\n\n"
-        "💱 <b>Выберите валюту для оплаты:</b>",
-        reply_markup=get_currencies_keyboard(),
+        rate_text,
+        reply_markup=get_rate_confirm_keyboard(),
         parse_mode="HTML"
     )
     await callback.answer()
 
 
 # ============================================================================
+# Шаг 3.5: Подтверждение курса
+# ============================================================================
+
+@router.callback_query(BuyUSDTStates.confirm_rate, F.data == "back")
+async def back_from_rate_confirm(callback: CallbackQuery, state: FSMContext):
+    """Назад к выбору города"""
+    await state.set_state(BuyUSDTStates.choose_city)
+    
+    await callback.message.edit_text(
+        "🏙 <b>Выберите город:</b>",
+        reply_markup=await get_priority_cities_keyboard(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(BuyUSDTStates.confirm_rate, F.data == "rate:confirm")
+async def confirm_rate(callback: CallbackQuery, state: FSMContext):
+    """Подтверждение курса - переход к выбору валюты"""
+    await state.set_state(BuyUSDTStates.choose_currency)
+    
+    data = await state.get_data()
+    city_code = data.get('city')
+    city_name = data.get('city_name')
+    
+    await callback.message.edit_text(
+        f"✅ Город: {city_name}\n\n"
+        "💱 <b>Выберите валюту для оплаты:</b>",
+        reply_markup=get_currencies_keyboard(city_code),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(BuyUSDTStates.confirm_rate, F.data == "rate:cancel")
+async def cancel_rate(callback: CallbackQuery, state: FSMContext):
+    """Отмена курса - возврат к выбору города"""
+    await state.set_state(BuyUSDTStates.choose_city)
+    
+    await callback.message.edit_text(
+        "🏙 <b>Выберите город:</b>",
+        reply_markup=await get_priority_cities_keyboard(),
+        parse_mode="HTML"
+    )
+    await callback.answer("Курс отменен. Выберите другой город или вернитесь назад.")
+
+
+# ============================================================================
 # Шаг 4: Выбор валюты
 # ============================================================================
+
+@router.callback_query(BuyUSDTStates.choose_currency, F.data == "back")
+async def back_from_currency(callback: CallbackQuery, state: FSMContext):
+    """Назад к подтверждению курса"""
+    await state.set_state(BuyUSDTStates.confirm_rate)
+    
+    data = await state.get_data()
+    amount = float(data.get('amount', 0))
+    city_code = data.get('city')
+    city_name = data.get('city_name')
+    
+    # Получаем курс USDT/RUB для покупки
+    from src.services.best_rate import get_best_city_rate
+    
+    rate_info = await get_best_city_rate('USDT/RUB', city_code, 'buy')
+    
+    if rate_info:
+        rate = rate_info['final_rate']
+        rub_amount = amount * rate
+        
+        rate_text = (
+            f"✅ Город: {city_name}\n"
+            f"💰 Сумма: {amount:,.0f} USDT\n\n"
+            f"📊 <b>Текущий курс:</b>\n"
+            f"1 USDT = {rate:,.2f} RUB\n\n"
+            f"💵 <b>К оплате:</b> {rub_amount:,.2f} RUB\n\n"
+            "Подтверждаете курс?"
+        )
+    else:
+        rate_text = (
+            f"✅ Город: {city_name}\n"
+            f"💰 Сумма: {amount:,.0f} USDT\n\n"
+            "⚠️ <b>Курс временно недоступен</b>\n\n"
+            "Продолжить оформление заявки?"
+        )
+    
+    await callback.message.edit_text(
+        rate_text,
+        reply_markup=get_rate_confirm_keyboard(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
 
 @router.callback_query(BuyUSDTStates.choose_currency, F.data.startswith("currency:"))
 async def choose_currency(callback: CallbackQuery, state: FSMContext):
@@ -114,75 +293,21 @@ async def choose_currency(callback: CallbackQuery, state: FSMContext):
     currency = callback.data.split(":", 1)[1]
     
     await state.update_data(currency=currency)
-    await state.set_state(BuyUSDTStates.enter_amount)
-    
-    await callback.message.edit_text(
-        f"✅ Выбрана валюта: {currency}\n\n"
-        "💰 <b>Выберите сумму или введите свою:</b>",
-        reply_markup=get_amount_keyboard_v2(),
-        parse_mode="HTML"
-    )
-    await callback.answer()
-
-
-# ============================================================================
-# Шаг 5: Ввод суммы
-# ============================================================================
-
-@router.callback_query(BuyUSDTStates.enter_amount, F.data == "amount:custom")
-async def amount_custom(callback: CallbackQuery):
-    """Запрос ввода своей суммы"""
-    await callback.message.answer(
-        "📝 Введите сумму (например: 1000):"
-    )
-    await callback.answer()
-
-
-@router.callback_query(BuyUSDTStates.enter_amount, F.data.startswith("amount:"))
-async def amount_selected(callback: CallbackQuery, state: FSMContext):
-    """Выбор суммы из предложенных"""
-    amount = callback.data.split(":", 1)[1]
-    
-    if amount == "custom":
-        return  # Обработано выше
-    
-    await state.update_data(amount=amount)
     await state.set_state(BuyUSDTStates.enter_username)
     
+    data = await state.get_data()
+    
     await callback.message.edit_text(
-        f"✅ Сумма: ${amount}\n\n"
-        "👤 <b>Оставьте ваш Telegram username:</b>\n"
-        "(например: @yourname)",
+        f"✅ Валюта: {currency}\n\n"
+        "👤 <b>Напишите свой телеграм-юзернейм через @:</b>\n"
+        "(пример: @btc_otc)",
         parse_mode="HTML"
     )
     await callback.answer()
 
 
-@router.message(BuyUSDTStates.enter_amount, F.text)
-async def amount_entered(message: Message, state: FSMContext):
-    """Обработка введенной суммы"""
-    try:
-        amount = float(message.text.replace(",", ".").replace(" ", ""))
-        if amount <= 0:
-            raise ValueError
-        
-        await state.update_data(amount=str(int(amount)))
-        await state.set_state(BuyUSDTStates.enter_username)
-        
-        await message.answer(
-            f"✅ Сумма: ${int(amount)}\n\n"
-            "👤 <b>Оставьте ваш Telegram username:</b>\n"
-            "(например: @yourname)",
-            parse_mode="HTML"
-        )
-    except (ValueError, AttributeError):
-        await message.answer(
-            "❌ Неверный формат суммы. Введите число (например: 1000):"
-        )
-
-
 # ============================================================================
-# Шаг 6: Ввод username
+# Шаг 5: Ввод username
 # ============================================================================
 
 @router.message(BuyUSDTStates.enter_username, F.text)
@@ -196,15 +321,42 @@ async def enter_username(message: Message, state: FSMContext):
     # Формируем итоговую заявку
     data = await state.get_data()
     
-    summary = (
-        "📋 <b>Проверьте вашу заявку:</b>\n\n"
-        f"🔄 Операция: <b>Покупка USDT</b>\n"
-        f"🏙 Город: {data.get('city_name', 'N/A')}\n"
-        f"💱 Валюта: {data.get('currency', 'N/A')}\n"
-        f"💰 Сумма: ${data.get('amount', 'N/A')}\n"
-        f"👤 Username: {username}\n\n"
-        "Всё верно?"
-    )
+    # Получаем курс для отображения
+    from src.services.best_rate import get_best_city_rate
+    
+    amount = float(data.get('amount', 0))
+    city = data.get('city', 'moscow')
+    currency = data.get('currency', 'RUB')
+    
+    # Получаем курс USDT/RUB для покупки
+    rate_info = await get_best_city_rate('USDT/RUB', city, 'buy')
+    
+    if rate_info:
+        rate = rate_info['final_rate']
+        # Рассчитываем сколько рублей нужно отдать за USDT
+        rub_amount = amount * rate
+        
+        summary = (
+            f"📋 <b>Заявка #{message.from_user.id}</b>\n\n"
+            f"🔄 Операция: <b>Покупка USDT</b>\n"
+            f"💰 Отдаете: {rub_amount:,.2f} {currency}\n"
+            f"💎 Получаете: {amount:,.0f} USDT\n"
+            f"📊 Курс: 1 USDT = {rate:,.2f} {currency}\n"
+            f"🏙 Город: {data.get('city_name', 'N/A')}\n"
+            f"👤 Username: {username}\n\n"
+            "Всё верно?"
+        )
+    else:
+        # Fallback если курс не получен
+        summary = (
+            "📋 <b>Проверьте вашу заявку:</b>\n\n"
+            f"🔄 Операция: <b>Покупка USDT</b>\n"
+            f"💎 Получаете: {amount:,.0f} USDT\n"
+            f"🏙 Город: {data.get('city_name', 'N/A')}\n"
+            f"💱 Валюта: {data.get('currency', 'N/A')}\n"
+            f"👤 Username: {username}\n\n"
+            "Всё верно?"
+        )
     
     await message.answer(
         summary,
@@ -214,8 +366,23 @@ async def enter_username(message: Message, state: FSMContext):
 
 
 # ============================================================================
-# Шаг 7: Подтверждение и создание заявки
+# Шаг 6: Подтверждение и создание заявки
 # ============================================================================
+
+@router.callback_query(BuyUSDTStates.confirm, F.data == "back")
+async def back_from_confirm(callback: CallbackQuery, state: FSMContext):
+    """Назад к вводу username"""
+    await state.set_state(BuyUSDTStates.enter_username)
+    data = await state.get_data()
+    
+    await callback.message.edit_text(
+        f"✅ Валюта: {data.get('currency', 'N/A')}\n\n"
+        "👤 <b>Напишите свой телеграм-юзернейм через @:</b>\n"
+        "(пример: @btc_otc)",
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
 
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:yes")
 async def confirm_order(callback: CallbackQuery, state: FSMContext):
@@ -224,36 +391,50 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     logger.info(f"Order data: {data}")
     
-    # Сохраняем заявку в БД
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
+        # Сначала убедимся что пользователь есть в БД и получаем его id
+        user_id = await conn.fetchval("""
+            INSERT INTO users (tg_id, username, first_name, lang)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (tg_id) DO UPDATE SET username = EXCLUDED.username
+            RETURNING id
+        """, 
+            callback.from_user.id,
+            callback.from_user.username,
+            callback.from_user.first_name,
+            callback.from_user.language_code or 'ru'
+        )
+        
+        # Теперь создаем заявку с правильным user_id
         order_id = await conn.fetchval("""
             INSERT INTO orders (
-                user_id, username, order_type, city, currency, amount, status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+                user_id, 
+                order_type, 
+                city, 
+                currency, 
+                amount, 
+                status, 
+                username
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
         """,
-            callback.from_user.id,
-            data.get('username'),
+            user_id,  # Используем id из таблицы users
             'buy_usdt',
             data.get('city'),
             data.get('currency'),
-            data.get('amount'),
-            'new'
+            float(data.get('amount', 0)),
+            'new',
+            data.get('username')
         )
     
     await state.clear()
     
     await callback.message.edit_text(
-        f"✅ <b>Ваша заявка #{order_id} принята!</b>\n\n"
-        f"🔄 С вами свяжется менеджер {MANAGER_USERNAME}\n\n"
-        "Спасибо за обращение!",
-        parse_mode="HTML"
-    )
-    
-    await callback.message.answer(
-        "Выберите действие:",
-        reply_markup=main_menu
+        f"✅ Ваша заявка #{order_id} принята!\n\n"
+        f"Скоро пришлем контакты Вашего менеджера\n\n"
+        "Спасибо за обращение!"
     )
     
     await callback.answer()
@@ -264,11 +445,12 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:edit")
 async def edit_order(callback: CallbackQuery, state: FSMContext):
     """Изменение заявки"""
-    await state.set_state(BuyUSDTStates.choose_city)
+    await state.set_state(BuyUSDTStates.enter_amount)
     await callback.message.edit_text(
         "🔄 Начнем заново.\n\n"
-        "🏙 <b>Выберите город:</b>",
-        reply_markup=await get_priority_cities_keyboard(),
+        "💰 <b>Введите Сумму USDT:</b>\n\n"
+        "Например: 100 или 1500.50",
+        reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -282,10 +464,6 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
         "❌ Заявка отменена.",
         parse_mode="HTML"
     )
-    await callback.message.answer(
-        "Выберите действие:",
-        reply_markup=main_menu
-    )
     await callback.answer()
 
 
@@ -296,23 +474,31 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "contact_manager")
 async def contact_manager(callback: CallbackQuery, state: FSMContext):
     """Связаться с менеджером на любом этапе"""
-    await callback.answer(
-        f"Вы можете написать менеджеру: {MANAGER_USERNAME}",
-        show_alert=True
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    contact_message = (
+        "💬 Напишите нам для консультации\n\n"
+        "Мы всегда рады помочь!"
     )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💬 Написать менеджеру", url=f"https://t.me/{MANAGER_USERNAME[1:]}")],
+    ])
+    
+    await callback.message.answer(
+        contact_message,
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+    await callback.answer()
 
 
 # ============================================================================
-# Отладочный обработчик (ловит необработанные callback)
+# Обработчик неизвестных коллбэков (для отладки)
 # ============================================================================
 
-@router.callback_query(BuyUSDTStates())
-async def debug_unhandled_callback(callback: CallbackQuery, state: FSMContext):
-    """Отладка: ловит необработанные callback_query в процессе покупки"""
-    current_state = await state.get_state()
-    logger.warning(
-        f"Unhandled callback in BuyUSDT flow: "
-        f"data={callback.data}, state={current_state}, user={callback.from_user.id}"
-    )
+@router.callback_query(BuyUSDTStates.confirm)
+async def handle_unknown_confirm_callback(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии confirm"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.confirm: {callback.data}")
     await callback.answer("⚠️ Неизвестная команда", show_alert=True)
-

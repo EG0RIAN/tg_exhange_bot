@@ -85,18 +85,24 @@
                             </td>
                             <td>{{ user_item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td>
+                                <a href="/admin/send-message?user_id={{ user_item.tg_id }}" 
+                                   class="btn btn-sm btn-primary" 
+                                   title="Отправить сообщение">
+                                    <i class="bi bi-envelope"></i>
+                                </a>
+                                
                                 {% if user_item.is_blocked %}
                                     <form method="POST" action="/admin/users/{{ user_item.id }}/unblock" style="display: inline;">
                                         <button type="submit" class="btn btn-sm btn-success" 
                                                 onclick="return confirm('Разблокировать пользователя?')">
-                                            <i class="bi bi-unlock"></i> Разблокировать
+                                            <i class="bi bi-unlock"></i>
                                         </button>
                                     </form>
                                 {% else %}
                                     <form method="POST" action="/admin/users/{{ user_item.id }}/block" style="display: inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" 
                                                 onclick="return confirm('Заблокировать пользователя?')">
-                                            <i class="bi bi-lock"></i> Заблокировать
+                                            <i class="bi bi-lock"></i>
                                         </button>
                                     </form>
                                 {% endif %}

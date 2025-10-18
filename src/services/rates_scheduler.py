@@ -11,7 +11,7 @@ class RatesScheduler:
     def __init__(self):
         self._task: Optional[asyncio.Task] = None
         self._is_running = False
-        self._update_interval = 5  # секунды
+        self._update_interval = 3600  # секунды (1 час)
         self._last_update = None
         self._update_count = 0
         self._error_count = 0

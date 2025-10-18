@@ -41,10 +41,10 @@ async def add_rate(pair, ask, bid):
 async def import_rapira_rates():
     """Импортирует курсы из Rapira API"""
     from src.db import get_pg_pool
-    from src.services.rapira import get_rapira_provider
+    from src.services.rapira_simple import get_rapira_simple_client
     
     try:
-        provider = await get_rapira_provider()
+        client = await get_rapira_simple_client()
         pool = await get_pg_pool()
         
         # Получаем все пары из БД
@@ -54,19 +54,21 @@ async def import_rapira_rates():
         updated_count = 0
         for pair in pairs:
             try:
-                # Получаем актуальные курсы
-                cash_in_rate = await calculate_exchange_rate(pair, OperationType.CASH_IN)
-                cash_out_rate = await calculate_exchange_rate(pair, OperationType.CASH_OUT)
+                # Получаем базовые курсы из Rapira API
+                base_data = await client.get_base_rate(pair)
                 
-                # Обновляем БД
-                async with pool.acquire() as conn:
-                    await conn.execute(
-                        "UPDATE rates SET ask=$1, bid=$2, source='rapira', updated_at=now() WHERE pair=$3",
-                        cash_out_rate.final_rate,  # ask для продажи USDT
-                        cash_in_rate.final_rate,   # bid для покупки USDT
-                        pair
-                    )
-                    updated_count += 1
+                if base_data and base_data.get('best_ask') and base_data.get('best_bid'):
+                    # Обновляем БД с базовыми курсами
+                    async with pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE rates SET ask=$1, bid=$2, source='rapira', updated_at=now() WHERE pair=$3",
+                            float(base_data['best_ask']),  # ask для покупки USDT
+                            float(base_data['best_bid']),  # bid для продажи USDT
+                            pair
+                        )
+                        updated_count += 1
+                else:
+                    logger.warning(f"No rate data for {pair}")
                     
             except Exception as e:
                 logger.error(f"Failed to import rate for {pair}: {e}")

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отправить сообщение - Админ-панель</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">
+            <i class="bi bi-shield-check"></i> Админка
+        </a>
+        <div class="d-flex">
+            <span class="navbar-text me-3">
+                <i class="bi bi-person-circle"></i> {{ user }}
+            </span>
+            <a href="/logout" class="btn btn-outline-light">
+                <i class="bi bi-box-arrow-right"></i> Выйти
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-envelope"></i> Отправить сообщение пользователям</h1>
+        <a href="/admin" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Форма отправки</h5>
+                </div>
+                <div class="card-body">
+                    <form id="sendMessageForm">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Получатели:</strong></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="recipient_type" id="all_users" value="all" {% if not user_id %}checked{% endif %}>
+                                <label class="form-check-label" for="all_users">
+                                    Всем пользователям
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="recipient_type" id="specific_user" value="specific" {% if user_id %}checked{% endif %}>
+                                <label class="form-check-label" for="specific_user">
+                                    Конкретному пользователю
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="userIdGroup" style="{% if user_id %}display: block;{% else %}display: none;{% endif %}">
+                            <label for="userId" class="form-label">Telegram ID пользователя:</label>
+                            <input type="number" class="form-control" id="userId" placeholder="303661082" value="{{ user_id if user_id else '' }}">
+                            <small class="text-muted">Введите Telegram ID пользователя</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="messageText" class="form-label"><strong>Текст сообщения:</strong></label>
+                            <textarea class="form-control" id="messageText" rows="6" placeholder="Введите текст сообщения..." required></textarea>
+                            <small class="text-muted">Поддерживается HTML форматирование: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;code&gt;код&lt;/code&gt;</small>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="parseMode">
+                            <label class="form-check-label" for="parseMode">
+                                Использовать HTML форматирование
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Отправить
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="alert alert-success mt-3" id="successAlert" style="display: none;">
+                <i class="bi bi-check-circle"></i> <span id="successMessage"></span>
+            </div>
+
+            <div class="alert alert-danger mt-3" id="errorAlert" style="display: none;">
+                <i class="bi bi-exclamation-circle"></i> <span id="errorMessage"></span>
+            </div>
+
+            <div class="card mt-3" id="progressCard" style="display: none;">
+                <div class="card-body">
+                    <h6>Отправка...</h6>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted mt-2" id="progressText">Отправлено: 0 / 0</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Информация</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Всего пользователей:</strong> <span id="totalUsers">Загрузка...</span></p>
+                    <hr>
+                    <p class="mb-0"><small class="text-muted">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        При отправке всем пользователям будет соблюдаться задержка между сообщениями для предотвращения блокировки бота.
+                    </small></p>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="bi bi-book"></i> Примеры форматирования</h6>
+                </div>
+                <div class="card-body">
+                    <code>&lt;b&gt;Жирный текст&lt;/b&gt;</code><br>
+                    <code>&lt;i&gt;Курсив&lt;/i&gt;</code><br>
+                    <code>&lt;u&gt;Подчеркнутый&lt;/u&gt;</code><br>
+                    <code>&lt;s&gt;Зачеркнутый&lt;/s&gt;</code><br>
+                    <code>&lt;code&gt;Моноширинный&lt;/code&gt;</code><br>
+                    <code>&lt;a href="URL"&gt;Ссылка&lt;/a&gt;</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Переключение между всеми пользователями и конкретным
+document.querySelectorAll('input[name="recipient_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const userIdGroup = document.getElementById('userIdGroup');
+        if (this.value === 'specific') {
+            userIdGroup.style.display = 'block';
+            document.getElementById('userId').required = true;
+        } else {
+            userIdGroup.style.display = 'none';
+            document.getElementById('userId').required = false;
+        }
+    });
+});
+
+// Загрузка количества пользователей
+async function loadUserCount() {
+    try {
+        const response = await fetch('/api/users/count');
+        const data = await response.json();
+        document.getElementById('totalUsers').textContent = data.count;
+    } catch (error) {
+        document.getElementById('totalUsers').textContent = 'Ошибка загрузки';
+    }
+}
+
+// Отправка сообщения
+document.getElementById('sendMessageForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const recipientType = document.querySelector('input[name="recipient_type"]:checked').value;
+    const userId = document.getElementById('userId').value;
+    const messageText = document.getElementById('messageText').value;
+    const parseMode = document.getElementById('parseMode').checked ? 'HTML' : null;
+    
+    if (!messageText.trim()) {
+        showError('Введите текст сообщения');
+        return;
+    }
+    
+    if (recipientType === 'specific' && !userId) {
+        showError('Введите Telegram ID пользователя');
+        return;
+    }
+    
+    // Скрываем alerts
+    hideAlerts();
+    
+    // Показываем прогресс
+    if (recipientType === 'all') {
+        document.getElementById('progressCard').style.display = 'block';
+    }
+    
+    try {
+        const response = await fetch('/api/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                recipient_type: recipientType,
+                user_id: recipientType === 'specific' ? parseInt(userId) : null,
+                message: messageText,
+                parse_mode: parseMode
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess(result.message);
+            document.getElementById('messageText').value = '';
+            if (recipientType === 'all') {
+                updateProgress(result.sent, result.total, result.failed);
+            }
+        } else {
+            showError(result.error || 'Ошибка при отправке сообщения');
+        }
+        
+        // Скрываем прогресс
+        setTimeout(() => {
+            document.getElementById('progressCard').style.display = 'none';
+        }, 3000);
+        
+    } catch (error) {
+        showError('Ошибка при отправке: ' + error.message);
+        document.getElementById('progressCard').style.display = 'none';
+    }
+});
+
+function showSuccess(message) {
+    const alert = document.getElementById('successAlert');
+    document.getElementById('successMessage').textContent = message;
+    alert.style.display = 'block';
+    setTimeout(() => { alert.style.display = 'none'; }, 5000);
+}
+
+function showError(message) {
+    const alert = document.getElementById('errorAlert');
+    document.getElementById('errorMessage').textContent = message;
+    alert.style.display = 'block';
+    setTimeout(() => { alert.style.display = 'none'; }, 5000);
+}
+
+function hideAlerts() {
+    document.getElementById('successAlert').style.display = 'none';
+    document.getElementById('errorAlert').style.display = 'none';
+}
+
+function updateProgress(sent, total, failed) {
+    const percent = Math.round((sent / total) * 100);
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressText').textContent = `Отправлено: ${sent} / ${total}${failed > 0 ? ` (ошибок: ${failed})` : ''}`;
+}
+
+// Загружаем количество пользователей при загрузке страницы
+loadUserCount();
+</script>
+
+</body>
+</html>
+
