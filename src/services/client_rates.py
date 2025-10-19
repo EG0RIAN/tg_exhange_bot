@@ -132,49 +132,6 @@ async def get_client_rates(city: str) -> Dict[str, Dict]:
     return result
 
 
-async def format_rates_for_display(city: str, city_name: str) -> str:
-    """
-    Форматирует курсы для отображения клиенту
-    
-    Args:
-        city: Код города
-        city_name: Название города
-        
-    Returns:
-        Отформатированная строка с курсами
-    """
-    rates = await get_client_rates(city)
-    
-    if not rates:
-        return "Курсы временно недоступны. Попробуйте позже."
-    
-    from datetime import datetime
-    text = f"💱 **Курсы для города: {city_name}**\n\n"
-    
-    for pair, rate_data in rates.items():
-        text += f"**{pair}:**\n"
-        
-        buy_rate = rate_data.get('buy', {})
-        sell_rate = rate_data.get('sell', {})
-        
-        if buy_rate.get('rate'):
-            text += f"  Покупка: {buy_rate['rate']:.2f} ₽\n"
-        else:
-            text += f"  Покупка: _недоступен_\n"
-        
-        if sell_rate.get('rate'):
-            text += f"  Продажа: {sell_rate['rate']:.2f} ₽\n"
-        else:
-            text += f"  Продажа: _недоступен_\n"
-        
-        text += "\n"
-    
-    text += f"_Обновлено: {datetime.now().strftime('%H:%M')}_\n"
-    text += f"_Курсы указаны для вашего города_"
-    
-    return text
-
-
 async def get_rate_for_order(pair: str, city: str, operation: str = "buy") -> Optional[Dict]:
     """
     Получает курс для создания заявки

@@ -670,7 +670,8 @@ async def order_detail(request: Request, order_id: int, user=Depends(get_current
         order = await conn.fetchrow("""
             SELECT o.id, o.pair, o.amount, o.payout_method, o.contact, o.status, o.created_at,
                    o.rate_snapshot, o.order_type, o.city, o.currency, o.payment_method, 
-                   o.purpose, o.invoice_file_id, o.username as order_username,
+                   o.purpose, o.invoice_file_id, o.invoice_file_type, o.photo_file_id, 
+                   o.photo_file_type, o.username as order_username,
                    u.first_name, u.username, u.tg_id, u.lang
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.id
@@ -685,6 +686,69 @@ async def order_detail(request: Request, order_id: int, user=Depends(get_current
         "user": user, 
         "order": order
     })
+
+@app.get("/admin/orders/{order_id}/photo")
+async def view_order_photo(order_id: int, user=Depends(get_current_user)):
+    """Просмотр прикрепленного фото/документа к заявке"""
+    if not user:
+        return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+    
+    from fastapi.responses import Response, JSONResponse
+    import os
+    
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        order = await conn.fetchrow("""
+            SELECT photo_file_id, photo_file_type
+            FROM orders
+            WHERE id = $1
+        """, order_id)
+    
+    if not order or not order['photo_file_id']:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Фото не найдено"}
+        )
+    
+    try:
+        # Получаем бота из окружения
+        bot_token = os.getenv("BOT_TOKEN")
+        if not bot_token:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "BOT_TOKEN не настроен"}
+            )
+        
+        from aiogram import Bot
+        from aiogram.types import BufferedInputFile
+        
+        bot = Bot(token=bot_token)
+        
+        # Получаем файл от Telegram
+        file = await bot.get_file(order['photo_file_id'])
+        file_bytes = await bot.download_file(file.file_path)
+        
+        # Определяем MIME-тип
+        if order['photo_file_type'] == 'photo':
+            content_type = "image/jpeg"
+        else:
+            content_type = "application/octet-stream"
+        
+        await bot.session.close()
+        
+        return Response(
+            content=file_bytes.read(),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"inline; filename=order_{order_id}_photo.jpg"
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Ошибка загрузки файла: {str(e)}"}
+        )
+
 
 @app.post("/admin/orders/{order_id}/status")
 async def update_order_status(

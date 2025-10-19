@@ -15,6 +15,7 @@ class BuyUSDTStates(StatesGroup):
     confirm_rate = State()         # Подтверждение курса
     choose_currency = State()      # Выбор валюты (USD/RUB и т.п.)
     enter_username = State()       # Ввод username
+    attach_photo = State()         # Прикрепление фото/документа
     confirm = State()              # Подтверждение заявки
 
 
@@ -28,6 +29,7 @@ class SellUSDTStates(StatesGroup):
     confirm_rate = State()         # Подтверждение курса
     choose_currency = State()      # Выбор валюты для выдачи наличных
     enter_username = State()       # Ввод username
+    attach_photo = State()         # Прикрепление фото/документа
     confirm = State()              # Подтверждение заявки
 
 

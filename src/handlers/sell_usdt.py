@@ -328,8 +328,52 @@ async def enter_username(message: Message, state: FSMContext):
     log_user_action(logger, message.from_user.id, "entered username", username=username)
     
     await state.update_data(username=username)
-    await state.set_state(SellUSDTStates.confirm)
+    await state.set_state(SellUSDTStates.attach_photo)
     
+    await message.answer(
+        "📸 <b>Прикрепите фото или документ:</b>\n\n"
+        "Например: чек, квитанцию или скриншот\n\n"
+        "💡 Если хотите пропустить, нажмите /skip",
+        parse_mode="HTML"
+    )
+
+
+# ============================================================================
+# Шаг 6: Прикрепление фото/документа
+# ============================================================================
+
+@router.message(SellUSDTStates.attach_photo, F.document | F.photo)
+@log_handler("attach_photo")
+async def attach_photo_file(message: Message, state: FSMContext):
+    """Прикрепление фото или документа"""
+    log_user_action(logger, message.from_user.id, "attaching photo")
+    
+    # Сохраняем file_id и тип
+    if message.document:
+        file_id = message.document.file_id
+        file_type = "document"
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+        file_type = "photo"
+    else:
+        await message.answer("⚠️ Пожалуйста, отправьте файл или фото.")
+        return
+    
+    await state.update_data(photo_file_id=file_id, photo_file_type=file_type)
+    await show_confirmation(message, state)
+
+
+@router.message(SellUSDTStates.attach_photo, Command("skip"))
+@log_handler("skip_photo")
+async def skip_photo(message: Message, state: FSMContext):
+    """Пропустить прикрепление фото"""
+    log_user_action(logger, message.from_user.id, "skipped photo")
+    await show_confirmation(message, state)
+
+
+async def show_confirmation(message: Message, state: FSMContext):
+    """Показать подтверждение заявки"""
+    await state.set_state(SellUSDTStates.confirm)
     data = await state.get_data()
     
     # Получаем курс для отображения
@@ -420,9 +464,11 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
                 currency, 
                 amount, 
                 status, 
-                username
+                username,
+                photo_file_id,
+                photo_file_type
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id
         """,
             user_id,
@@ -431,7 +477,9 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
             data.get('currency'),
             float(data.get('amount', 0)),
             'new',
-            data.get('username')
+            data.get('username'),
+            data.get('photo_file_id'),
+            data.get('photo_file_type')
         )
     
     await state.clear()
