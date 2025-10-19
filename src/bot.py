@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.fsm.strategy import FSMStrategy
@@ -32,8 +31,14 @@ storage = RedisStorage.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
 dp = Dispatcher(storage=storage, fsm_strategy=FSMStrategy.CHAT)
 
 async def main():
-    structlog.configure(processors=[structlog.processors.JSONRenderer()])
-    logging.basicConfig(level=logging.INFO)
+    # Инициализация улучшенного логирования
+    from src.utils.logger import setup_logging
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    setup_logging(level=log_level, colored=True)
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"🚀 Starting Telegram bot with log level: {log_level}")
+    
     start_scheduler()
     
     # Запускаем планировщик курсов FX

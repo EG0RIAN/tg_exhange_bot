@@ -20,6 +20,7 @@ from src.keyboards import (
 )
 from src.db import get_pg_pool
 import logging
+from src.utils.logger import log_handler, log_user_action, log_order_event
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -46,8 +47,10 @@ async def reset_to_start(message: Message, state: FSMContext):
 # ============================================================================
 
 @router.message(F.text == "💸 Продать USDT")
+@log_handler("start_sell_usdt")
 async def start_sell_usdt(message: Message, state: FSMContext):
     """Начало пути продажи USDT - ввод суммы"""
+    log_user_action(logger, message.from_user.id, "started sell USDT flow")
     await state.clear()
     await state.set_state(SellUSDTStates.enter_amount)
     
@@ -431,6 +434,14 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     
     await state.clear()
     
+    log_order_event(
+        logger, order_id, "created",
+        type="sell_usdt",
+        user_id=callback.from_user.id,
+        amount=data.get('amount'),
+        city=data.get('city')
+    )
+    
     await callback.message.edit_text(
         f"✅ Ваша заявка #{order_id} принята!\n\n"
         f"Скоро пришлем контакты Вашего менеджера\n\n"
@@ -438,8 +449,6 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     )
     
     await callback.answer()
-    
-    logger.info(f"Order #{order_id} created: sell_usdt, user={callback.from_user.id}")
 
 
 @router.callback_query(SellUSDTStates.confirm, F.data == "confirm:edit")

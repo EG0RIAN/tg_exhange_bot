@@ -20,6 +20,7 @@ from src.keyboards import (
 )
 from src.db import get_pg_pool
 import logging
+from src.utils.logger import log_handler, log_user_action, log_order_event
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -47,8 +48,10 @@ async def reset_to_start(message: Message, state: FSMContext):
 # ============================================================================
 
 @router.message(F.text == "💵 Купить USDT")
+@log_handler("start_buy_usdt")
 async def start_buy_usdt(message: Message, state: FSMContext):
     """Начало пути покупки USDT - ввод суммы"""
+    log_user_action(logger, message.from_user.id, "started buy USDT flow")
     await state.clear()
     await state.set_state(BuyUSDTStates.enter_amount)
     
@@ -77,14 +80,17 @@ async def back_from_amount(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(BuyUSDTStates.enter_amount, F.text)
+@log_handler("enter_amount")
 async def enter_custom_amount(message: Message, state: FSMContext):
     """Ввод произвольной суммы"""
     try:
         amount = float(message.text.replace(',', '.'))
         if amount <= 0:
+            logger.warning(f"User {message.from_user.id} entered invalid amount: {amount}")
             await message.answer("⚠️ Сумма должна быть больше нуля. Попробуйте еще раз:")
             return
         
+        log_user_action(logger, message.from_user.id, "entered amount", amount=amount)
         await state.update_data(amount=str(amount))
         await state.set_state(BuyUSDTStates.choose_city)
         
@@ -139,6 +145,7 @@ async def back_from_city(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(BuyUSDTStates.choose_city, F.data.startswith("city:"))
+@log_handler("choose_city")
 async def choose_city(callback: CallbackQuery, state: FSMContext):
     """Выбор города"""
     city_code = callback.data.split(":", 1)[1]
@@ -155,10 +162,12 @@ async def choose_city(callback: CallbackQuery, state: FSMContext):
         )
     
     if not city_row:
+        logger.warning(f"User {callback.from_user.id} selected invalid city: {city_code}")
         await callback.answer("❌ Город не найден", show_alert=True)
         return
     
     city_name = city_row['name']
+    log_user_action(logger, callback.from_user.id, "chose city", city=city_name, code=city_code)
     
     await state.update_data(city=city_code, city_name=city_name)
     await state.set_state(BuyUSDTStates.confirm_rate)
@@ -395,11 +404,16 @@ async def back_from_confirm(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:yes")
+@log_handler("confirm_order")
 async def confirm_order(callback: CallbackQuery, state: FSMContext):
     """Подтверждение заявки"""
-    logger.info(f"Confirming buy_usdt order from user {callback.from_user.id}")
     data = await state.get_data()
-    logger.info(f"Order data: {data}")
+    log_user_action(
+        logger, callback.from_user.id, "confirming buy order",
+        amount=data.get('amount'),
+        city=data.get('city'),
+        currency=data.get('currency')
+    )
     
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
@@ -441,6 +455,14 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     
     await state.clear()
     
+    log_order_event(
+        logger, order_id, "created",
+        type="buy_usdt",
+        user_id=callback.from_user.id,
+        amount=data.get('amount'),
+        city=data.get('city')
+    )
+    
     await callback.message.edit_text(
         f"✅ Ваша заявка #{order_id} принята!\n\n"
         f"Скоро пришлем контакты Вашего менеджера\n\n"
@@ -448,8 +470,6 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     )
     
     await callback.answer()
-    
-    logger.info(f"Order #{order_id} created: buy_usdt, user={callback.from_user.id}")
 
 
 @router.callback_query(BuyUSDTStates.confirm, F.data == "confirm:edit")

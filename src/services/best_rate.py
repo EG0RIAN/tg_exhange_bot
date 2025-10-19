@@ -6,9 +6,11 @@
 import logging
 from decimal import Decimal
 from typing import Optional, Dict
+from datetime import datetime
 from src.services.rapira_simple import get_city_rate, get_rapira_simple_client
 from src.services.grinex import get_grinex_client
 from src.utils.cache import cached_query
+from src.utils.logger import log_api_call, PerformanceLogger
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,8 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
             'timestamp': datetime
         }
     """
+    start_time = datetime.now()
+    logger.debug(f"Getting best rate: {symbol} for {city}, operation={operation}")
     
     rapira_rate = None
     grinex_rate = None
@@ -137,6 +141,12 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
     
     from src.services.rapira_simple import CITIES
     city_name = CITIES.get(city, city)
+    
+    duration = (datetime.now() - start_time).total_seconds() * 1000
+    logger.info(
+        f"Best rate calculated: {symbol} {operation} @ {city} = {final_rate:.2f} "
+        f"(source: {best_source}, markup: {markup_percent}%, {duration:.0f}ms)"
+    )
     
     return {
         'symbol': symbol,

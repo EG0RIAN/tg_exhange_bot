@@ -20,6 +20,7 @@ from src.keyboards import (
 )
 from src.db import get_pg_pool
 import logging
+from src.utils.logger import log_handler, log_user_action, log_order_event
 
 router = Router()
 logger = logging.getLogger(__name__)
