@@ -1,5 +1,6 @@
 """
 Сервис получения лучшего курса из Rapira + Grinex с наценкой по городу
+ОПТИМИЗИРОВАНО: добавлено кэширование запросов к БД
 """
 
 import logging
@@ -7,6 +8,7 @@ from decimal import Decimal
 from typing import Optional, Dict
 from src.services.rapira_simple import get_city_rate, get_rapira_simple_client
 from src.services.grinex import get_grinex_client
+from src.utils.cache import cached_query
 
 logger = logging.getLogger(__name__)
 
@@ -113,28 +115,20 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
         return None
     
     # Применяем наценку города из таблицы cities (раздельно на buy/sell)
-    from src.db import get_pg_pool
+    # ОПТИМИЗАЦИЯ: Кэшируем данные города на 60 секунд
+    city_data = await _get_city_markup(city)
     
-    pool = await get_pg_pool()
-    async with pool.acquire() as conn:
-        city_data = await conn.fetchrow("""
-            SELECT markup_buy, markup_sell, markup_fixed
-            FROM cities
-            WHERE code = $1 AND enabled = true
-            LIMIT 1
-        """, city)
-        
-        if city_data:
-            # Выбираем наценку в зависимости от операции
-            if operation == "buy":
-                markup_percent = float(city_data['markup_buy'])
-            else:
-                markup_percent = float(city_data['markup_sell'])
-            markup_fixed = float(city_data['markup_fixed'])
+    if city_data:
+        # Выбираем наценку в зависимости от операции
+        if operation == "buy":
+            markup_percent = float(city_data['markup_buy'])
         else:
-            logger.warning(f"City {city} not found in DB, using 0%")
-            markup_percent = 0.0
-            markup_fixed = 0.0
+            markup_percent = float(city_data['markup_sell'])
+        markup_fixed = float(city_data['markup_fixed'])
+    else:
+        logger.warning(f"City {city} not found in DB, using 0%")
+        markup_percent = 0.0
+        markup_fixed = 0.0
     
     # Применяем формулу
     final_rate = base_rate * (1 + markup_percent / 100) + markup_fixed
@@ -158,4 +152,32 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
         'grinex_rate': grinex_rate,
         'timestamp': rapira_timestamp
     }
+
+
+# ============================================================================
+# Вспомогательные функции с кэшированием
+# ============================================================================
+
+async def _get_city_markup(city: str) -> Optional[Dict]:
+    """
+    Получает данные наценки города с кэшированием
+    Кэш на 60 секунд (города меняются редко)
+    """
+    from src.db import get_pg_pool
+    
+    async def query():
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetchrow("""
+                SELECT markup_buy, markup_sell, markup_fixed
+                FROM cities
+                WHERE code = $1 AND enabled = true
+                LIMIT 1
+            """, city)
+    
+    return await cached_query(
+        key=f"city_markup:{city}",
+        query_func=query,
+        ttl_seconds=60  # Кэш на 60 секунд
+    )
 

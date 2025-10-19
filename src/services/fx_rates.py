@@ -122,13 +122,21 @@ class FXRatesService:
             sources = await conn.fetch("SELECT * FROM fx_source WHERE enabled = true")
             self._sources_cache = {row['code']: FXSource(**dict(row)) for row in sources}
             
-            # Загружаем пары для каждого источника
-            for source in sources:
-                pairs = await conn.fetch(
-                    "SELECT * FROM fx_source_pair WHERE source_id = $1 AND enabled = true",
-                    source['id']
-                )
-                self._pairs_cache[source['id']] = [FXSourcePair(**dict(row)) for row in pairs]
+            # ОПТИМИЗАЦИЯ: Загружаем все пары одним запросом вместо N+1
+            if sources:
+                source_ids = [s['id'] for s in sources]
+                all_pairs = await conn.fetch("""
+                    SELECT * FROM fx_source_pair 
+                    WHERE source_id = ANY($1) AND enabled = true
+                """, source_ids)
+                
+                # Группируем пары по source_id
+                self._pairs_cache = {}
+                for pair in all_pairs:
+                    source_id = pair['source_id']
+                    if source_id not in self._pairs_cache:
+                        self._pairs_cache[source_id] = []
+                    self._pairs_cache[source_id].append(FXSourcePair(**dict(pair)))
             
             # Загружаем активные правила наценки
             rules = await conn.fetch("""
