@@ -62,25 +62,26 @@ async def get_best_city_rate(symbol: str, city: str, operation: str = "buy") -> 
     except Exception as e:
         logger.warning(f"Failed to get Rapira rate: {e}")
     
+    # ВРЕМЕННО ОТКЛЮЧЕНО: Grinex API возвращает 404
     # Получаем курс из Grinex
-    try:
-        grinex_client = await get_grinex_client()
-        
-        # Преобразуем символ для Grinex (USDT/RUB → USDTRUB)
-        grinex_symbol = symbol.replace("/", "")
-        
-        ticker = await grinex_client.get_ticker(grinex_symbol)
-        if ticker:
-            # Для buy берем ask, для sell берем bid
-            if operation == "buy" and ticker.ask:
-                grinex_rate = float(ticker.ask)
-            elif operation == "sell" and ticker.bid:
-                grinex_rate = float(ticker.bid)
-            elif ticker.last_price:
-                # Fallback на last_price
-                grinex_rate = float(ticker.last_price)
-    except Exception as e:
-        logger.warning(f"Failed to get Grinex rate: {e}")
+    # try:
+    #     grinex_client = await get_grinex_client()
+    #     
+    #     # Преобразуем символ для Grinex (USDT/RUB → USDTRUB)
+    #     grinex_symbol = symbol.replace("/", "")
+    #     
+    #     ticker = await grinex_client.get_ticker(grinex_symbol)
+    #     if ticker:
+    #         # Для buy берем ask, для sell берем bid
+    #         if operation == "buy" and ticker.ask:
+    #             grinex_rate = float(ticker.ask)
+    #         elif operation == "sell" and ticker.bid:
+    #             grinex_rate = float(ticker.bid)
+    #         elif ticker.last_price:
+    #             # Fallback на last_price
+    #             grinex_rate = float(ticker.last_price)
+    # except Exception as e:
+    #     logger.warning(f"Failed to get Grinex rate: {e}")
     
     # Выбираем лучший курс
     if operation == "buy":
