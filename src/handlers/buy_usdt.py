@@ -468,12 +468,11 @@ async def cancel_order(callback: CallbackQuery, state: FSMContext):
 
 
 # ============================================================================
-# Универсальный обработчик "Связаться с менеджером"
+# Универсальный обработчик "Связаться с менеджером" для всех состояний
 # ============================================================================
 
-@router.callback_query(F.data == "contact_manager")
-async def contact_manager(callback: CallbackQuery, state: FSMContext):
-    """Связаться с менеджером на любом этапе"""
+async def handle_contact_manager(callback: CallbackQuery):
+    """Универсальная функция для связи с менеджером"""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
     contact_message = (
@@ -493,9 +492,56 @@ async def contact_manager(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@router.callback_query(StateFilter(BuyUSDTStates), F.data == "contact_manager")
+async def contact_manager_in_state(callback: CallbackQuery, state: FSMContext):
+    """Связаться с менеджером в любом состоянии FSM"""
+    await handle_contact_manager(callback)
+
+
+@router.callback_query(F.data == "contact_manager")
+async def contact_manager_no_state(callback: CallbackQuery):
+    """Связаться с менеджером вне FSM"""
+    await handle_contact_manager(callback)
+
+
 # ============================================================================
-# Обработчик неизвестных коллбэков (для отладки)
+# Обработчики неизвестных коллбэков (для отладки)
 # ============================================================================
+
+@router.callback_query(BuyUSDTStates.enter_amount)
+async def handle_unknown_enter_amount(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии enter_amount"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.enter_amount: {callback.data}")
+    await callback.answer("⚠️ Пожалуйста, введите сумму текстом", show_alert=True)
+
+
+@router.callback_query(BuyUSDTStates.choose_city)
+async def handle_unknown_choose_city(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии choose_city"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.choose_city: {callback.data}")
+    await callback.answer("⚠️ Пожалуйста, выберите город из списка", show_alert=True)
+
+
+@router.callback_query(BuyUSDTStates.confirm_rate)
+async def handle_unknown_confirm_rate(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии confirm_rate"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.confirm_rate: {callback.data}")
+    await callback.answer("⚠️ Пожалуйста, подтвердите или отмените курс", show_alert=True)
+
+
+@router.callback_query(BuyUSDTStates.choose_currency)
+async def handle_unknown_choose_currency(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии choose_currency"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.choose_currency: {callback.data}")
+    await callback.answer("⚠️ Пожалуйста, выберите валюту", show_alert=True)
+
+
+@router.callback_query(BuyUSDTStates.enter_username)
+async def handle_unknown_enter_username(callback: CallbackQuery, state: FSMContext):
+    """Обработчик для неизвестных callback в состоянии enter_username"""
+    logger.warning(f"Unhandled callback in BuyUSDTStates.enter_username: {callback.data}")
+    await callback.answer("⚠️ Пожалуйста, введите username текстом", show_alert=True)
+
 
 @router.callback_query(BuyUSDTStates.confirm)
 async def handle_unknown_confirm_callback(callback: CallbackQuery, state: FSMContext):

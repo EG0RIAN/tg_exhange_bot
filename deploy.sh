@@ -40,3 +40,4 @@ echo "📊 Проверьте статус: docker-compose ps"
 echo "📋 Логи бота: docker-compose logs -f bot"
 echo "🌐 Логи веб-админки: docker-compose logs -f webadmin"
 
+

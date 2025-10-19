@@ -53,6 +53,7 @@ async def get_priority_cities_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="🌴 Краснодар", callback_data="city:krasnodar")],
             [InlineKeyboardButton(text="🏭 Ростов-на-Дону", callback_data="city:rostov")],
             [InlineKeyboardButton(text="🌍 Остальные города", callback_data="city:other")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back")],
         ]
     )
     return add_manager_button(kb)
