@@ -115,6 +115,9 @@
                             {% if order.invoice_file_id %}
                             <p><strong>Инвойс:</strong> 
                                 <span class="badge bg-info">📎 Прикреплен{% if order.invoice_file_type %} ({{ order.invoice_file_type }}){% endif %}</span>
+                                <a href="/admin/orders/{{ order.id }}/invoice" target="_blank" class="btn btn-sm btn-outline-info ms-2">
+                                    <i class="bi bi-eye"></i> Просмотр
+                                </a>
                             </p>
                             {% endif %}
                             
