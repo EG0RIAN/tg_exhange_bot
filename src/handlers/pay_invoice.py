@@ -16,6 +16,7 @@ from src.keyboards import (
     get_all_cities_keyboard,
     get_amount_keyboard_v2,
     get_confirm_keyboard_v2,
+    get_currencies_keyboard,
     main_menu
 )
 from src.db import get_pg_pool
