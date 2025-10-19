@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from src.keyboards import main_menu, get_trading_pairs_keyboard, get_rates_back_keyboard, get_cities_keyboard
+from src.keyboards import main_menu, get_trading_pairs_keyboard, get_rates_back_keyboard, get_priority_cities_keyboard
 from src.i18n import _, detect_user_lang
 from src.db import get_pg_pool
 from src.services.content import format_rates_display, get_trading_pairs, get_rate_tiers_for_pair
@@ -94,7 +94,7 @@ async def rates_back(callback: CallbackQuery, state: FSMContext):
     
     if from_priority:
         # Возвращаемся к приоритетным городам
-        await callback.message.edit_text("🌍 Выберите ваш город для просмотра курсов:", reply_markup=await get_cities_keyboard())
+        await callback.message.edit_text("🌍 Выберите ваш город для просмотра курсов:", reply_markup=await get_priority_cities_keyboard())
     else:
         # Возвращаемся к списку всех городов
         from src.keyboards import get_all_cities_keyboard

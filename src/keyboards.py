@@ -8,7 +8,7 @@ main_menu = ReplyKeyboardMarkup(
         [KeyboardButton(text="💵 Купить USDT")],
         [KeyboardButton(text="💸 Продать USDT")],
         [KeyboardButton(text="📄 Оплатить инвойс")],
-        [KeyboardButton(text="📖 FAQ")],
+        [KeyboardButton(text="📖 FAQ"), KeyboardButton(text="⚙️ Настройки")],
         [KeyboardButton(text="👨‍💼 Связаться с менеджером")],
     ],
     resize_keyboard=True
@@ -131,18 +131,8 @@ def get_rate_confirm_keyboard():
     )
     return add_manager_button(kb)
 
-async def get_cities_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора города с приоритетными городами + кнопка 'Остальные города'"""
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🏛 Москва", callback_data="city:moscow")],
-            [InlineKeyboardButton(text="🌉 Санкт-Петербург", callback_data="city:spb")],
-            [InlineKeyboardButton(text="🌴 Краснодар", callback_data="city:krasnodar")],
-            [InlineKeyboardButton(text="🏭 Ростов-на-Дону", callback_data="city:rostov")],
-            [InlineKeyboardButton(text="🌍 Остальные города", callback_data="city:other")],
-        ]
-    )
-    return kb
+# УДАЛЕНО: дублирующая функция get_cities_keyboard()
+# Используйте get_priority_cities_keyboard() вместо этого
 
 def get_faq_categories_keyboard(categories: list[tuple]) -> InlineKeyboardMarkup:
     """Создает клавиатуру для выбора категории FAQ
