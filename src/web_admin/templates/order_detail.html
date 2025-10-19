@@ -114,13 +114,13 @@
                             
                             {% if order.invoice_file_id %}
                             <p><strong>Инвойс:</strong> 
-                                <span class="badge bg-info">📎 Прикреплен ({{ order.invoice_file_type }})</span>
+                                <span class="badge bg-info">📎 Прикреплен{% if order.invoice_file_type %} ({{ order.invoice_file_type }}){% endif %}</span>
                             </p>
                             {% endif %}
                             
                             {% if order.photo_file_id %}
                             <p><strong>Фото/Документ:</strong> 
-                                <span class="badge bg-success">📷 Прикреплен ({{ order.photo_file_type }})</span>
+                                <span class="badge bg-success">📷 Прикреплен{% if order.photo_file_type %} ({{ order.photo_file_type }}){% endif %}</span>
                                 <a href="/admin/orders/{{ order.id }}/photo" target="_blank" class="btn btn-sm btn-outline-primary ms-2">
                                     <i class="bi bi-eye"></i> Просмотр
                                 </a>
