@@ -321,9 +321,11 @@ async def choose_currency(callback: CallbackQuery, state: FSMContext):
 # ============================================================================
 
 @router.message(SellUSDTStates.enter_username, F.text)
+@log_handler("enter_username")
 async def enter_username(message: Message, state: FSMContext):
     """Ввод username"""
     username = message.text.strip()
+    log_user_action(logger, message.from_user.id, "entered username", username=username)
     
     await state.update_data(username=username)
     await state.set_state(SellUSDTStates.confirm)
