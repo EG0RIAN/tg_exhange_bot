@@ -7,8 +7,21 @@ from src.services.rapira import RapiraProvider, Side, get_rapira_provider
 logger = logging.getLogger(__name__)
 
 class OperationType(Enum):
-    CASH_IN = "cash_in"   # Клиент отдает USDT, получает RUB
-    CASH_OUT = "cash_out"  # Клиент отдает RUB, получает USDT
+    CASH_IN = "cash_in"   # Клиент отдает USDT, получает RUB (ПРОДАЖА USDT)
+    CASH_OUT = "cash_out"  # Клиент отдает RUB, получает USDT (ПОКУПКА USDT)
+    SELL = "sell"  # Синоним для CASH_IN - клиент продает USDT
+    BUY = "buy"    # Синоним для CASH_OUT - клиент покупает USDT
+    
+    @classmethod
+    def normalize(cls, operation: str) -> 'OperationType':
+        """Нормализует операцию к нужному типу"""
+        operation_lower = operation.lower()
+        if operation_lower in ('sell', 'cash_in'):
+            return cls.CASH_IN
+        elif operation_lower in ('buy', 'cash_out'):
+            return cls.CASH_OUT
+        else:
+            return cls(operation_lower)
 
 @dataclass
 class RateCalculation:

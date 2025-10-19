@@ -98,15 +98,27 @@ class FXRatesScheduler:
                     
                     self._last_sync[source_code] = datetime.now()
                     
-                    if result['status'] == 'success':
+                    # Проверка формата результата
+                    if not isinstance(result, dict):
+                        logger.error(f"FX sync {source_code}: invalid result format")
+                        continue
+                    
+                    # Если нет пар - просто логируем
+                    if result.get('pairs_processed', 0) == 0:
+                        logger.info(f"FX sync {source_code}: no pairs configured, skipped")
+                        continue
+                    
+                    # Обработка результата синхронизации
+                    status = result.get('status', 'unknown')
+                    if status == 'success':
                         logger.info(
-                            f"FX sync {source_code}: {result['pairs_succeeded']}/{result['pairs_processed']} pairs, "
-                            f"{result['duration_ms']}ms"
+                            f"FX sync {source_code}: {result.get('pairs_succeeded', 0)}/{result.get('pairs_processed', 0)} pairs, "
+                            f"{result.get('duration_ms', 0)}ms"
                         )
-                    elif result['status'] == 'partial':
+                    elif status == 'partial':
                         logger.warning(
-                            f"FX sync {source_code} partial: {result['pairs_succeeded']}/{result['pairs_processed']} succeeded, "
-                            f"{result['pairs_failed']} failed"
+                            f"FX sync {source_code} partial: {result.get('pairs_succeeded', 0)}/{result.get('pairs_processed', 0)} succeeded, "
+                            f"{result.get('pairs_failed', 0)} failed"
                         )
                     else:
                         logger.error(f"FX sync {source_code} failed: {result.get('errors', [])}")

@@ -58,12 +58,25 @@ async def import_rapira_rates():
                 base_data = await client.get_base_rate(pair)
                 
                 if base_data and base_data.get('best_ask') and base_data.get('best_bid'):
+                    # Валидация значений перед сохранением (предотвращение overflow)
+                    ask = float(base_data['best_ask'])
+                    bid = float(base_data['best_bid'])
+                    
+                    # Проверка на разумные значения (курс должен быть < 1,000,000)
+                    if ask > 1_000_000 or bid > 1_000_000:
+                        logger.error(f"Курс для {pair} слишком большой (ask={ask}, bid={bid}), пропускаем")
+                        continue
+                    
+                    if ask <= 0 or bid <= 0:
+                        logger.error(f"Курс для {pair} некорректен (ask={ask}, bid={bid}), пропускаем")
+                        continue
+                    
                     # Обновляем БД с базовыми курсами
                     async with pool.acquire() as conn:
                         await conn.execute(
                             "UPDATE rates SET ask=$1, bid=$2, source='rapira', updated_at=now() WHERE pair=$3",
-                            float(base_data['best_ask']),  # ask для покупки USDT
-                            float(base_data['best_bid']),  # bid для продажи USDT
+                            ask,  # ask для покупки USDT
+                            bid,  # bid для продажи USDT
                             pair
                         )
                         updated_count += 1
