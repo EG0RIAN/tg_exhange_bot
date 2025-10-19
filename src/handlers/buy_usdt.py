@@ -64,6 +64,16 @@ async def start_buy_usdt(message: Message, state: FSMContext):
 # Шаг 2: Ввод суммы
 # ============================================================================
 
+@router.callback_query(BuyUSDTStates.enter_amount, F.data == "back")
+async def back_from_amount(callback: CallbackQuery, state: FSMContext):
+    """Назад из ввода суммы - возврат в главное меню"""
+    await state.clear()
+    from src.i18n import _, detect_user_lang
+    pool = await get_pg_pool()
+    lang = await detect_user_lang(callback.from_user, db_pool=pool)
+    await callback.message.edit_text(_("start_message", lang=lang))
+    await callback.message.answer("Главное меню:", reply_markup=main_menu)
+    await callback.answer()
 
 
 @router.message(BuyUSDTStates.enter_amount, F.text)

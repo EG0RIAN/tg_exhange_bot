@@ -60,6 +60,18 @@ async def start_pay_invoice(message: Message, state: FSMContext):
     )
 
 
+@router.callback_query(PayInvoiceStates.choose_purpose, F.data == "back")
+async def back_from_purpose(callback: CallbackQuery, state: FSMContext):
+    """Назад из выбора цели - возврат в главное меню"""
+    await state.clear()
+    from src.i18n import _, detect_user_lang
+    pool = await get_pg_pool()
+    lang = await detect_user_lang(callback.from_user, db_pool=pool)
+    await callback.message.edit_text(_("start_message", lang=lang))
+    await callback.message.answer("Главное меню:", reply_markup=main_menu)
+    await callback.answer()
+
+
 @router.callback_query(PayInvoiceStates.choose_purpose, F.data.startswith("purpose:"))
 async def choose_purpose(callback: CallbackQuery, state: FSMContext):
     """Выбор цели инвойса"""
