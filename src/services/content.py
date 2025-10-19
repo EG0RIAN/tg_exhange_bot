@@ -46,23 +46,4 @@ async def format_rates_display():
                 result.append(f"➖От {amount} ➡️ {tier['rate']}")
             result.append("")
     
-    return "\n".join(result)
-
-async def get_pairs_for_fsm():
-    """Получить пары для FSM из fx_source_pair (унифицированный источник)"""
-    pool = await get_pg_pool()
-    async with pool.acquire() as conn:
-        # Получаем уникальные internal_symbol из fx_source_pair
-        rows = await conn.fetch("""
-            SELECT DISTINCT internal_symbol
-            FROM fx_source_pair
-            WHERE enabled = true
-            ORDER BY internal_symbol
-        """)
-        return [row['internal_symbol'] for row in rows]
-
-async def get_payout_methods_for_pair(pair_code):
-    """Получить способы выплаты для пары"""
-    methods = await get_payout_methods()
-    # В реальности здесь может быть логика фильтрации по паре
-    return [m['name'] for m in methods] 
+    return "\n".join(result) 

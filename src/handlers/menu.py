@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from src.keyboards import main_menu, get_trading_pairs_keyboard, get_rates_back_keyboard, get_cities_keyboard
 from src.i18n import _, detect_user_lang
 from src.db import get_pg_pool
-from src.services.content import format_rates_display, get_pairs_for_fsm, get_trading_pairs, get_rate_tiers_for_pair
+from src.services.content import format_rates_display, get_trading_pairs, get_rate_tiers_for_pair
 from src.services.faq import get_categories
 import logging
 

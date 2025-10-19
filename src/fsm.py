@@ -44,18 +44,3 @@ class PayInvoiceStates(StatesGroup):
     attach_invoice = State()       # Прикрепление файла инвойса
     enter_username = State()       # Ввод username
     confirm = State()              # Подтверждение заявки
-
-
-# ============================================================================
-# LEGACY FSM (для совместимости со старым кодом)
-# ============================================================================
-class RequestFSM(StatesGroup):
-    """Устаревший FSM - оставлен для совместимости"""
-    ChooseCity = State()
-    ChoosePair = State()
-    ChooseAction = State()
-    EnterAmount = State()
-    SelectPayout = State()  # Добавлено для совместимости
-    EnterContact = State()
-    ContactInfo = State()  # Добавлено для совместимости
-    Confirm = State()
