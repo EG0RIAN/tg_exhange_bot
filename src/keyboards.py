@@ -14,10 +14,6 @@ main_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-def add_back_button(keyboard: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
-    keyboard.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="back")])
-    return keyboard
-
 def add_manager_button(keyboard: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
     """Добавляет кнопку 'Связаться с менеджером' на каждом этапе"""
     keyboard.inline_keyboard.append([
@@ -28,21 +24,6 @@ def add_manager_button(keyboard: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
 # ============================================================================
 # КЛАВИАТУРЫ ДЛЯ НОВОГО FLOW
 # ============================================================================
-
-def get_countries_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура выбора страны"""
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🇷🇺 Россия", callback_data="country:russia")],
-            [InlineKeyboardButton(text="🇰🇿 Казахстан", callback_data="country:kazakhstan")],
-            [InlineKeyboardButton(text="🇺🇿 Узбекистан", callback_data="country:uzbekistan")],
-            [InlineKeyboardButton(text="🇦🇿 Азербайджан", callback_data="country:azerbaijan")],
-            [InlineKeyboardButton(text="🇬🇪 Грузия", callback_data="country:georgia")],
-            [InlineKeyboardButton(text="🇹🇷 Турция", callback_data="country:turkey")],
-            [InlineKeyboardButton(text="🇦🇪 ОАЭ", callback_data="country:uae")],
-        ]
-    )
-    return add_manager_button(kb)
 
 async def get_priority_cities_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура выбора города с приоритетными городами + кнопка 'Остальные города'"""
@@ -150,29 +131,6 @@ def get_rate_confirm_keyboard():
     )
     return add_manager_button(kb)
 
-def get_pairs_keyboard(pairs: list[str]) -> InlineKeyboardMarkup:
-    buttons = [InlineKeyboardButton(text=pair, callback_data=f"pair:{pair}") for pair in pairs]
-    rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
-    kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    return add_back_button(kb)
-
-def get_amount_keyboard():
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="100", callback_data="amount:100"),
-             InlineKeyboardButton(text="250", callback_data="amount:250")],
-            [InlineKeyboardButton(text="1000", callback_data="amount:1000")],
-            [InlineKeyboardButton(text="📝 Своя", callback_data="amount:custom")],
-        ]
-    )
-    return add_back_button(kb)
-
-def get_payout_keyboard(methods: list[str]) -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=method, callback_data=f"payout:{method}")] for method in methods]
-    )
-    return add_back_button(kb)
-
 async def get_cities_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура выбора города с приоритетными городами + кнопка 'Остальные города'"""
     kb = InlineKeyboardMarkup(
@@ -185,16 +143,6 @@ async def get_cities_keyboard() -> InlineKeyboardMarkup:
         ]
     )
     return kb
-
-def get_confirm_keyboard():
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm")],
-            [InlineKeyboardButton(text="🔄 Изменить", callback_data="edit")],
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")],
-        ]
-    )
-    return add_back_button(kb)
 
 def get_faq_categories_keyboard(categories: list[tuple]) -> InlineKeyboardMarkup:
     """Создает клавиатуру для выбора категории FAQ

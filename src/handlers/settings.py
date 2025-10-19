@@ -27,13 +27,4 @@ async def settings_set_lang(callback: CallbackQuery, state: FSMContext):
         await conn.execute("UPDATE users SET lang=$1 WHERE tg_id=$2", lang, callback.from_user.id)
     
     await callback.message.edit_text(_("language_set", lang=lang))
-    await callback.answer()
-
-# Оставляем старый обработчик для совместимости
-@router.message(F.text.in_(["🇷🇺 Русский", "🇬🇧 English"]))
-async def settings_set_lang_old(message: Message, state: FSMContext):
-    lang = 'ru' if 'Рус' in message.text else 'en'
-    pool = await get_pg_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("UPDATE users SET lang=$1 WHERE tg_id=$2", lang, message.from_user.id)
-    await message.answer(_("language_set", lang=lang)) 
+    await callback.answer() 
