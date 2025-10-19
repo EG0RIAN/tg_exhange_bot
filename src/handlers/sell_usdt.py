@@ -501,8 +501,8 @@ async def contact_manager_no_state(callback: CallbackQuery):
 @router.callback_query(SellUSDTStates.enter_amount)
 async def handle_unknown_enter_amount(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии enter_amount"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("city:", "currency:", "rate:", "confirm:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("city:", "currency:", "rate:", "confirm:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.enter_amount: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, введите сумму текстом", show_alert=True)
@@ -511,8 +511,8 @@ async def handle_unknown_enter_amount(callback: CallbackQuery, state: FSMContext
 @router.callback_query(SellUSDTStates.choose_city)
 async def handle_unknown_choose_city(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии choose_city"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("currency:", "rate:", "amount:", "confirm:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("currency:", "rate:", "amount:", "confirm:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.choose_city: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, выберите город из списка", show_alert=True)
@@ -521,8 +521,8 @@ async def handle_unknown_choose_city(callback: CallbackQuery, state: FSMContext)
 @router.callback_query(SellUSDTStates.confirm_rate)
 async def handle_unknown_confirm_rate(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии confirm_rate"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("city:", "currency:", "amount:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("city:", "currency:", "amount:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.confirm_rate: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, подтвердите или отмените курс", show_alert=True)
@@ -531,8 +531,8 @@ async def handle_unknown_confirm_rate(callback: CallbackQuery, state: FSMContext
 @router.callback_query(SellUSDTStates.choose_currency)
 async def handle_unknown_choose_currency(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии choose_currency"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("city:", "rate:", "amount:", "confirm:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("city:", "rate:", "amount:", "confirm:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.choose_currency: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, выберите валюту", show_alert=True)
@@ -541,8 +541,8 @@ async def handle_unknown_choose_currency(callback: CallbackQuery, state: FSMCont
 @router.callback_query(SellUSDTStates.enter_username)
 async def handle_unknown_enter_username(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии enter_username"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("city:", "currency:", "rate:", "amount:", "confirm:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("city:", "currency:", "rate:", "amount:", "confirm:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.enter_username: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, введите username текстом", show_alert=True)
@@ -551,8 +551,8 @@ async def handle_unknown_enter_username(callback: CallbackQuery, state: FSMConte
 @router.callback_query(SellUSDTStates.confirm)
 async def handle_unknown_confirm_callback(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии confirm"""
-    # Игнорируем callback от других состояний
-    if callback.data.startswith(("city:", "currency:", "rate:", "amount:")):
+    # Игнорируем callback от других состояний и служебные кнопки
+    if callback.data.startswith(("city:", "currency:", "rate:", "amount:", "confirm:", "back", "contact_manager")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.confirm: {callback.data}")
     await callback.answer("⚠️ Неизвестная команда", show_alert=True)
