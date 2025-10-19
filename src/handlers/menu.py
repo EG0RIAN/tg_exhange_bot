@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from src.keyboards import main_menu, get_trading_pairs_keyboard, get_rates_back_keyboard, get_priority_cities_keyboard
 from src.i18n import _, detect_user_lang
@@ -8,6 +8,7 @@ from src.db import get_pg_pool
 from src.services.content import format_rates_display, get_trading_pairs, get_rate_tiers_for_pair
 from src.services.faq import get_categories
 import logging
+from src.utils.logger import log_handler, log_user_action
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -48,15 +49,14 @@ async def menu_contact_manager(message: Message):
     
     await message.answer(contact_message, reply_markup=keyboard)
 
-@router.callback_query(F.data.startswith("city:"))
+@router.callback_query(StateFilter(None), F.data.startswith("city:"))
+@log_handler("show_city_rates")
 async def show_city_rates(callback: CallbackQuery, state: FSMContext):
-    # Проверяем - если пользователь в FSM создания заявки, не обрабатываем здесь
-    current_state = await state.get_state()
-    if current_state is not None:
-        # Пользователь в процессе создания заявки, пропускаем
-        return
+    # Этот обработчик срабатывает ТОЛЬКО когда пользователь НЕ в FSM
+    # (просмотр курсов вне процесса создания заявки)
     
     city_code = callback.data.split(":", 1)[1]
+    log_user_action(logger, callback.from_user.id, "viewing rates", city=city_code)
     
     # Если выбрали "Остальные города", показываем их список
     if city_code == "other":
@@ -86,7 +86,7 @@ async def show_city_rates(callback: CallbackQuery, state: FSMContext):
         reply_markup=get_rates_back_keyboard()
     )
 
-@router.callback_query(F.data == "rates_back")
+@router.callback_query(StateFilter(None), F.data == "rates_back")
 async def rates_back(callback: CallbackQuery, state: FSMContext):
     # Проверяем, откуда пришел пользователь
     data = await state.get_data()
@@ -103,10 +103,10 @@ async def rates_back(callback: CallbackQuery, state: FSMContext):
     # Очищаем флаг
     await state.update_data(rates_from_priority=None)
 
-@router.callback_query(F.data == "back_to_priority_cities")
+@router.callback_query(StateFilter(None), F.data == "back_to_priority_cities")
 async def back_to_priority_cities(callback: CallbackQuery):
-    """Вернуться к приоритетным городам"""
-    await callback.message.edit_text("🌍 Выберите ваш город для просмотра курсов:", reply_markup=await get_cities_keyboard())
+    """Вернуться к приоритетным городам (только вне FSM)"""
+    await callback.message.edit_text("🌍 Выберите ваш город для просмотра курсов:", reply_markup=await get_priority_cities_keyboard())
 
 # Обработчик менеджера перенесен в src/handlers/livechat.py
 
