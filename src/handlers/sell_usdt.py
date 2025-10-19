@@ -531,7 +531,7 @@ async def handle_unknown_enter_amount(callback: CallbackQuery, state: FSMContext
 async def handle_unknown_choose_city(callback: CallbackQuery, state: FSMContext):
     """Обработчик для неизвестных callback в состоянии choose_city"""
     # Игнорируем callback от других состояний и служебные кнопки
-    if callback.data.startswith(("currency:", "rate:", "amount:", "confirm:", "back", "contact_manager")):
+    if callback.data.startswith(("currency:", "rate:", "amount:", "confirm:", "back", "contact_manager", "rates_back")):
         return
     logger.warning(f"Unhandled callback in SellUSDTStates.choose_city: {callback.data}")
     await callback.answer("⚠️ Пожалуйста, выберите город из списка", show_alert=True)
