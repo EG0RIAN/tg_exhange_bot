@@ -348,14 +348,8 @@ async def enter_username(message: Message, state: FSMContext):
     log_user_action(logger, message.from_user.id, "entered username", username=username)
     
     await state.update_data(username=username)
-    await state.set_state(BuyUSDTStates.attach_photo)
-    
-    await message.answer(
-        "📸 <b>Прикрепите фото или документ:</b>\n\n"
-        "Например: чек, квитанцию или скриншот\n\n"
-        "💡 Если хотите пропустить, нажмите /skip",
-        parse_mode="HTML"
-    )
+    # Сразу переходим к подтверждению заявки (без прикрепления фото)
+    await show_confirmation(message, state)
 
 
 # ============================================================================
@@ -496,11 +490,9 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
                 currency, 
                 amount, 
                 status, 
-                username,
-                photo_file_id,
-                photo_file_type
+                username
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
         """,
             user_id,  # Используем id из таблицы users
@@ -509,9 +501,7 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
             data.get('currency'),
             float(data.get('amount', 0)),
             'new',
-            data.get('username'),
-            data.get('photo_file_id'),
-            data.get('photo_file_type')
+            data.get('username')
         )
     
     await state.clear()
