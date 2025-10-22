@@ -57,7 +57,7 @@ async def start_buy_usdt(message: Message, state: FSMContext):
     
     await message.answer(
         "💰 <b>Введите Сумму USDT:</b>\n\n"
-        "Например: 100 или 1500.50",
+        "(Минимальная сумма для заявки 2500 Usdt)",
         reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
@@ -137,7 +137,7 @@ async def back_from_city(callback: CallbackQuery, state: FSMContext):
     
     await callback.message.edit_text(
         "💰 <b>Введите Сумму USDT:</b>\n\n"
-        "Например: 100 или 1500.50",
+        "(Минимальная сумма для заявки 2500 Usdt)",
         reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
@@ -528,7 +528,7 @@ async def edit_order(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "🔄 Начнем заново.\n\n"
         "💰 <b>Введите Сумму USDT:</b>\n\n"
-        "Например: 100 или 1500.50",
+        "(Минимальная сумма для заявки 2500 Usdt)",
         reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )

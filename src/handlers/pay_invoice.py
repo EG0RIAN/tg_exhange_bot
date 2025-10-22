@@ -128,7 +128,7 @@ async def choose_payment_method(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f"✅ Способ оплаты: {payment_text}\n\n"
         "💰 <b>Введите Сумму:</b>\n\n"
-        "Например: 100 или 1500.50",
+        "(Минимальная сумма для заявки 2500 Usdt)",
         reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
@@ -203,7 +203,7 @@ async def back_from_currency(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f"✅ Способ оплаты: 💵 Наличные\n\n"
         "💰 <b>Введите Сумму:</b>\n\n"
-        "Например: 100 или 1500.50",
+        "(Минимальная сумма для заявки 2500 Usdt)",
         reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
