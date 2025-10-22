@@ -240,17 +240,18 @@ async def back_from_rate_confirm(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(BuyUSDTStates.confirm_rate, F.data == "rate:confirm")
 async def confirm_rate(callback: CallbackQuery, state: FSMContext):
-    """Подтверждение курса - переход к выбору валюты"""
-    await state.set_state(BuyUSDTStates.choose_currency)
+    """Подтверждение курса - автоматически устанавливаем RUB и переходим к вводу username"""
+    # Автоматически устанавливаем валюту RUB
+    await state.update_data(currency='RUB')
+    await state.set_state(BuyUSDTStates.enter_username)
     
     data = await state.get_data()
-    city_code = data.get('city')
-    city_name = data.get('city_name')
     
     await callback.message.edit_text(
-        f"✅ Город: {city_name}\n\n"
-        "💱 <b>Выберите валюту для оплаты:</b>",
-        reply_markup=get_currencies_keyboard(city_code),
+        f"✅ Валюта: RUB\n\n"
+        "👤 <b>Напишите свой телеграм-юзернейм через @:</b>\n"
+        "(пример: @btc_otc)",
+        reply_markup=get_back_keyboard(),
         parse_mode="HTML"
     )
     await callback.answer()
