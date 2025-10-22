@@ -247,7 +247,7 @@ async def confirm_rate(callback: CallbackQuery, state: FSMContext):
         f"✅ Валюта выдачи: RUB\n\n"
         "👤 <b>Напишите свой телеграм-юзернейм через @:</b>\n"
         "(пример: @btc_otc)",
-        reply_markup=get_back_keyboard(),
+        reply_markup=get_amount_keyboard_v2(),
         parse_mode="HTML"
     )
     await callback.answer()
