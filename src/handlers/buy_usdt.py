@@ -402,6 +402,7 @@ async def show_confirmation(message: Message, state: FSMContext):
     amount = float(data.get('amount', 0))
     city = data.get('city', 'moscow')
     currency = data.get('currency', 'RUB')
+    username = data.get('username', 'N/A')
     
     # Получаем курс USDT/RUB для покупки
     rate_info = await get_best_city_rate('USDT/RUB', city, 'buy')
