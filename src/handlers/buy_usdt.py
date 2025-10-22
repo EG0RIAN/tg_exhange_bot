@@ -90,6 +90,16 @@ async def enter_custom_amount(message: Message, state: FSMContext):
             await message.answer("⚠️ Сумма должна быть больше нуля. Попробуйте еще раз:")
             return
         
+        # Проверка минимальной суммы
+        if amount < 2500:
+            logger.warning(f"User {message.from_user.id} entered amount below minimum: {amount}")
+            await message.answer(
+                "⚠️ <b>Минимальная сумма для заявки: 2500 USDT</b>\n\n"
+                "Пожалуйста, введите сумму не менее 2500 USDT:",
+                parse_mode="HTML"
+            )
+            return
+        
         log_user_action(logger, message.from_user.id, "entered amount", amount=amount)
         await state.update_data(amount=str(amount))
         await state.set_state(BuyUSDTStates.choose_city)
