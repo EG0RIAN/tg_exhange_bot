@@ -46,6 +46,11 @@ async def get_current_user(request: Request):
         return None
     return user
 
+@app.get("/")
+async def root(request: Request):
+    """Корневой маршрут - редирект на /login"""
+    return RedirectResponse("/login", status_code=status.HTTP_302_FOUND)
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
